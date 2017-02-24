@@ -1,6 +1,7 @@
 package goenc
 
 import (
+	"fmt"
 	"testing"
 
 	"crypto/rand"
@@ -16,6 +17,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		key := make([]byte, 32)
 		_, err := rand.Read(key)
 		So(err, ShouldBeNil)
+
 		es, err := EncryptString(s, string(key))
 		So(err, ShouldBeNil)
 		So(s, ShouldNotEqual, es)
@@ -29,13 +31,22 @@ func TestEncryptDecrypt(t *testing.T) {
 		pad := make([]byte, 32)
 		_, err := rand.Read(pad)
 		So(err, ShouldBeNil)
+
 		b := []byte("This is a message we'd like to encrypt")
 		k := []byte("super weak key")
+
 		out, err := NaCLEncrypt(pad, k, b)
 		So(err, ShouldBeNil)
 		So(bytes.Equal(b, out), ShouldBeFalse)
+
 		msg, err := NaCLDecrypt(pad, k, out)
 		So(err, ShouldBeNil)
+
+		So(bytes.Equal(b, msg), ShouldBeTrue)
+
+		pad, out, err = RandomPadNaCLEncrypt(k, b)
+		So(bytes.Equal(b, out), ShouldBeFalse)
+		msg, err = NaCLDecrypt(pad, k, out)
 		So(bytes.Equal(b, msg), ShouldBeTrue)
 	})
 }

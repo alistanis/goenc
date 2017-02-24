@@ -31,6 +31,7 @@ import (
 	TODO(cmc) - Add encrypted private key decryption
 	TODO(cmc) - Support loading and parsing private/public keys from different formats
 	TODO(cmc) - Finish writing tests
+	TODO(cmc) - Add HMAC support
 	TODO(cmc) - Verify this isn't horrifically insecure
 
 */
@@ -202,4 +203,15 @@ func NaCLDecrypt(pad, key, data []byte) (out []byte, err error) {
 		return message, nil
 	}
 	return nil, errors.New("Decryption failed")
+}
+
+// RandomPadNaCLEncrypt generates a random pad and returns the encrypted data, the pad, and an error if any
+func RandomPadNaCLEncrypt(key, message []byte) (pad, out []byte, err error) {
+	pad = make([]byte, 32)
+	_, err = rand.Read(pad)
+	if err != nil {
+		return
+	}
+	out, err = NaCLEncrypt(pad, key, message)
+	return
 }
