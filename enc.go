@@ -28,11 +28,11 @@ import (
 )
 
 /*
-	TODO(cmc) - Add encrypted private key decryption
-	TODO(cmc) - Support loading and parsing private/public keys from different formats
-	TODO(cmc) - Finish writing tests
-	TODO(cmc) - Add HMAC support
-	TODO(cmc) - Verify this isn't horrifically insecure
+	TODO(cmc): Add encrypted private key decryption
+	TODO(cmc): Support loading and parsing private/public keys from different formats
+	TODO(cmc): Finish writing tests
+	TODO(cmc): Add HMAC support
+	TODO(cmc): Verify this isn't horrifically insecure
 
 */
 
