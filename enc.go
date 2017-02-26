@@ -251,6 +251,16 @@ func (s *Session) Decrypt(message []byte) ([]byte, error) {
 	return m.Contents, nil
 }
 
+const (
+	InteractiveComplexity = 1 << (iota + 14)
+	Complexity15
+	Complexity16
+	Complexity17
+	Complexity18
+	Complexity19
+	AgressiveComplexity
+)
+
 // DeriveKey generates a new NaCl key from a passphrase and salt.
 // This is a costly operation.
 func DeriveKey(pass, salt []byte, N, keySize int) ([]byte, error) {
