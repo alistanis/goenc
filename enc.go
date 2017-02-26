@@ -30,12 +30,18 @@ import (
 	TODO(cmc): Verify this isn't horrifically insecure and have this reviewed by an expert before publishing
 */
 
+// BlockCipher represents a cipher that encodes and decodes chunks of data at a time
 type BlockCipher interface {
 	Encrypt(key, plaintext []byte) ([]byte, error)
 	Decrypt(key, ciphertext []byte) ([]byte, error)
 	KeySize() int
 }
 
+//---------------------------------------------------------------------------
+// BlockCipherInterface Functions - these should not be used with large files
+//--------------------------------------------------------------------------------
+
+// BCEncryptAndSaveWithPerms encrypts data and saves it to a file with the given permissions using the given key
 func BCEncryptAndSaveWithPerms(cipher BlockCipher, key, plaintext []byte, path string, perm os.FileMode) error {
 	data, err := cipher.Encrypt(key, plaintext)
 	if err != nil {
@@ -44,10 +50,12 @@ func BCEncryptAndSaveWithPerms(cipher BlockCipher, key, plaintext []byte, path s
 	return ioutil.WriteFile(path, data, perm)
 }
 
+// BCEncryptAndSave encrypts data and saves it to a file with the permissions 0644
 func BCEncryptAndSave(cipher BlockCipher, key, plaintext []byte, path string) error {
 	return BCEncryptAndSaveWithPerms(cipher, key, plaintext, path, 0644)
 }
 
+// BCReadEncryptedFile reads a file a path and attempts to decrypt the data there with the given key
 func BCReadEncryptedFile(cipher BlockCipher, key []byte, path string) ([]byte, error) {
 	ciphertext, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -57,6 +65,7 @@ func BCReadEncryptedFile(cipher BlockCipher, key []byte, path string) ([]byte, e
 	return plaintext, err
 }
 
+// CipherKind represents what kind of cipher to use
 type CipherKind int
 
 const (
@@ -72,11 +81,13 @@ const (
 	SaltSize = 64
 )
 
+// Cipher is a struct that contains a BlockCipher interface and stores a DerivedKey Complexity number
 type Cipher struct {
 	BlockCipher
 	DerivedKeyN int
 }
 
+// NewCipher returns a new Cipher containing a BlockCipher interface based on the CipherKind
 func NewCipher(kind CipherKind, derivedKeyN int, args ...[]byte) (*Cipher, error) {
 	c := &Cipher{DerivedKeyN: derivedKeyN}
 	switch kind {
@@ -104,6 +115,8 @@ func NewCipher(kind CipherKind, derivedKeyN int, args ...[]byte) (*Cipher, error
 	return c, nil
 }
 
+// Encrypt takes a password, plaintext, and derives a key based on that password,
+// then encrypting that data with the underlying block cipher
 func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
 	salt, err := generate.RandBytes(SaltSize)
 	if err != nil {
@@ -127,6 +140,7 @@ func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
 
 const Overhead = SaltSize + secretbox.Overhead + generate.NonceSize
 
+// Decrypt takes a password and ciphertext, derives a key, and attempts to decrypt that data
 func (c *Cipher) Decrypt(password, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < Overhead {
 		return nil, encerrors.ErrInvalidMessageLength
@@ -138,7 +152,8 @@ func (c *Cipher) Decrypt(password, ciphertext []byte) ([]byte, error) {
 	}
 
 	out, err := c.BlockCipher.Decrypt(key, ciphertext[SaltSize:])
-	Zero(key) // Zero key immediately after
+	Zero(key)
+	key = nil
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +178,7 @@ func (m *MockBlockCipher) KeySize() int {
 	return 32
 }
 
+// StreamCipher handles encrypting and decrypting a stream of data in chunks
 type StreamCipher interface {
 	// EncryptStream encrypts bytes into w from r
 	EncryptStream(key []byte, w io.Writer, r io.Reader) error
@@ -170,21 +186,25 @@ type StreamCipher interface {
 	DecryptStream(key []byte, w io.Writer, r io.Reader) error
 }
 
+// Message represents a message being passed, and contains its contents and a sequence number
 type Message struct {
 	Number   uint32
 	Contents []byte
 }
 
+// NewMessage returns a new message
 func NewMessage(in []byte, num uint32) *Message {
 	return &Message{Contents: in, Number: num}
 }
 
+// Marshal encodes a sequence number into the data that we wish to send
 func (m *Message) Marshal() []byte {
 	out := make([]byte, 4, len(m.Contents)+4)
 	binary.BigEndian.PutUint32(out[:4], m.Number)
 	return append(out, m.Contents...)
 }
 
+// UnmarshalMessage decodes bytes into a message pointer
 func UnmarshalMessage(in []byte) (*Message, error) {
 	m := &Message{}
 	if len(in) <= 4 {
@@ -196,6 +216,7 @@ func UnmarshalMessage(in []byte) (*Message, error) {
 	return m, nil
 }
 
+// Channel is a typed io.ReadWriter used for communicating securely
 type Channel io.ReadWriter
 
 type Session struct {
@@ -207,18 +228,22 @@ type Session struct {
 	recvKey  []byte
 }
 
+// NewSession returns a new *Session
 func NewSession(ch Channel, c BlockCipher) *Session {
 	return &Session{Cipher: c, Channel: ch}
 }
 
+// LastSent returns the last sent message id
 func (s *Session) LastSent() uint32 {
 	return s.lastSent
 }
 
+// LastRecv returns the last received message id
 func (s *Session) LastRecv() uint32 {
 	return s.lastRecv
 }
 
+// Encrypt encrypts a message with an embedded message id
 func (s *Session) Encrypt(message []byte) ([]byte, error) {
 	if len(message) == 0 {
 		return nil, encerrors.ErrInvalidMessageLength
@@ -229,6 +254,7 @@ func (s *Session) Encrypt(message []byte) ([]byte, error) {
 	return s.Cipher.Encrypt(s.sendKey, m.Marshal())
 }
 
+// Decrypt decrypts a message and checks that its message id is valid
 func (s *Session) Decrypt(message []byte) ([]byte, error) {
 	out, err := s.Cipher.Decrypt(s.recvKey, message)
 	if err != nil {
@@ -251,6 +277,7 @@ func (s *Session) Decrypt(message []byte) ([]byte, error) {
 }
 
 const (
+	// N Complexity in powers of 2 for key Derivation
 	InteractiveComplexity = 1 << (iota + 14)
 	Complexity15
 	Complexity16
@@ -271,9 +298,11 @@ func DeriveKey(pass, salt []byte, N, keySize int) ([]byte, error) {
 
 	copy(naclKey, key)
 	Zero(key)
+	key = nil
 	return naclKey, nil
 }
 
+// Zero zeroes out bytes of data so that it does not stay in memory any longer than necessary
 func Zero(data []byte) {
 	for i := 0; i < len(data); i++ {
 		data[i] = 0
