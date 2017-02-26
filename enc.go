@@ -8,6 +8,7 @@
 package goenc
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"io"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
 	"github.com/alistanis/goenc/nacl"
+	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/scrypt"
 )
@@ -41,8 +43,8 @@ type BlockCipher interface {
 // BlockCipherInterface Functions - these should not be used with large files
 //--------------------------------------------------------------------------------
 
-// BCEncryptAndSaveWithPerms encrypts data and saves it to a file with the given permissions using the given key
-func BCEncryptAndSaveWithPerms(cipher BlockCipher, key, plaintext []byte, path string, perm os.FileMode) error {
+// EncryptAndSaveWithPerms encrypts data and saves it to a file with the given permissions using the given key
+func EncryptAndSaveWithPerms(cipher BlockCipher, key, plaintext []byte, path string, perm os.FileMode) error {
 	data, err := cipher.Encrypt(key, plaintext)
 	if err != nil {
 		return err
@@ -50,13 +52,13 @@ func BCEncryptAndSaveWithPerms(cipher BlockCipher, key, plaintext []byte, path s
 	return ioutil.WriteFile(path, data, perm)
 }
 
-// BCEncryptAndSave encrypts data and saves it to a file with the permissions 0644
-func BCEncryptAndSave(cipher BlockCipher, key, plaintext []byte, path string) error {
-	return BCEncryptAndSaveWithPerms(cipher, key, plaintext, path, 0644)
+// EncryptAndSave encrypts data and saves it to a file with the permissions 0644
+func EncryptAndSave(cipher BlockCipher, key, plaintext []byte, path string) error {
+	return EncryptAndSaveWithPerms(cipher, key, plaintext, path, 0644)
 }
 
-// BCReadEncryptedFile reads a file a path and attempts to decrypt the data there with the given key
-func BCReadEncryptedFile(cipher BlockCipher, key []byte, path string) ([]byte, error) {
+// ReadEncryptedFile reads a file a path and attempts to decrypt the data there with the given key
+func ReadEncryptedFile(cipher BlockCipher, key []byte, path string) ([]byte, error) {
 	ciphertext, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -178,14 +180,6 @@ func (m *MockBlockCipher) KeySize() int {
 	return 32
 }
 
-// StreamCipher handles encrypting and decrypting a stream of data in chunks
-type StreamCipher interface {
-	// EncryptStream encrypts bytes into w from r
-	EncryptStream(key []byte, w io.Writer, r io.Reader) error
-	// DecryptStream decrypts bytes into w from r
-	DecryptStream(key []byte, w io.Writer, r io.Reader) error
-}
-
 // Message represents a message being passed, and contains its contents and a sequence number
 type Message struct {
 	Number   uint32
@@ -220,17 +214,12 @@ func UnmarshalMessage(in []byte) (*Message, error) {
 type Channel io.ReadWriter
 
 type Session struct {
-	Cipher   BlockCipher
+	Cipher   *Cipher
 	Channel  Channel
 	lastSent uint32
 	lastRecv uint32
-	sendKey  []byte
-	recvKey  []byte
-}
-
-// NewSession returns a new *Session
-func NewSession(ch Channel, c BlockCipher) *Session {
-	return &Session{Cipher: c, Channel: ch}
+	sendKey  *[32]byte
+	recvKey  *[32]byte
 }
 
 // LastSent returns the last sent message id
@@ -251,12 +240,12 @@ func (s *Session) Encrypt(message []byte) ([]byte, error) {
 
 	s.lastSent++
 	m := NewMessage(message, s.lastSent)
-	return s.Cipher.Encrypt(s.sendKey, m.Marshal())
+	return s.Cipher.Encrypt(s.sendKey[:], m.Marshal())
 }
 
 // Decrypt decrypts a message and checks that its message id is valid
 func (s *Session) Decrypt(message []byte) ([]byte, error) {
-	out, err := s.Cipher.Decrypt(s.recvKey, message)
+	out, err := s.Cipher.Decrypt(s.recvKey[:], message)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +263,186 @@ func (s *Session) Decrypt(message []byte) ([]byte, error) {
 	s.lastRecv = m.Number
 
 	return m.Contents, nil
+}
+
+// Send encrypts the message and sends it out over the channel.
+func (s *Session) Send(message []byte) error {
+	m, err := s.Encrypt(message)
+	if err != nil {
+		return err
+	}
+
+	err = binary.Write(s.Channel, binary.BigEndian, uint32(len(m)))
+	if err != nil {
+		return err
+	}
+
+	_, err = s.Channel.Write(m)
+	return err
+}
+
+// Receive listens for a new message on the channel.
+func (s *Session) Receive() ([]byte, error) {
+	var mlen uint32
+	err := binary.Read(s.Channel, binary.BigEndian, &mlen)
+	if err != nil {
+		return nil, err
+	}
+
+	message := make([]byte, int(mlen))
+	_, err = io.ReadFull(s.Channel, message)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.Decrypt(message)
+}
+
+// GenerateKeyPair generates a new key pair. This can be used to get a
+// new key pair for setting up a rekeying operation during the session.
+func GenerateKeyPair() (pub *[64]byte, priv *[64]byte, err error) {
+	pub = new([64]byte)
+	priv = new([64]byte)
+
+	recvPub, recvPriv, err := box.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	copy(pub[:], recvPub[:])
+	copy(priv[:], recvPriv[:])
+
+	sendPub, sendPriv, err := box.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	copy(pub[32:], sendPub[:])
+	copy(priv[32:], sendPriv[:])
+	return pub, priv, err
+}
+
+// Close zeroises the keys in the session. Once a session is closed,
+// the traffic that was sent over the channel can no longer be decrypted
+// and any attempts at sending or receiving messages over the channel
+// will fail.
+func (s *Session) Close() error {
+	Zero(s.sendKey[:])
+	Zero(s.recvKey[:])
+	return nil
+}
+
+// keyExchange is a convenience function that takes keys as byte slices,
+// copying them into the appropriate arrays.
+func keyExchange(shared *[32]byte, priv, pub []byte) {
+	// Copy the private key and wipe it, as it will no longer be needed.
+	var kexPriv [32]byte
+	copy(kexPriv[:], priv)
+	Zero(priv)
+
+	var kexPub [32]byte
+	copy(kexPub[:], pub)
+
+	box.Precompute(shared, &kexPub, &kexPriv)
+	Zero(kexPriv[:])
+}
+
+// NewSession returns a new *Session
+func NewSession(ch Channel, c *Cipher) *Session {
+	return &Session{
+		Cipher:  c,
+		Channel: ch,
+		recvKey: new([32]byte),
+		sendKey: new([32]byte),
+	}
+}
+
+// Dial sets up a new session over the channel by generating a new pair
+// of Curve25519 keypairs, sending its public keys to the peer, and
+// reading the peer's public keys back.
+func Dial(ch Channel, c *Cipher) (*Session, error) {
+	var peer [64]byte
+	pub, priv, err := GenerateKeyPair()
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ch.Write(pub[:])
+	if err != nil {
+		return nil, err
+	}
+
+	// Make sure the entire public key is read.
+	_, err = io.ReadFull(ch, peer[:])
+	if err != nil {
+		return nil, err
+	}
+
+	s := NewSession(ch, c)
+
+	s.KeyExchange(priv, &peer, true)
+	return s, nil
+}
+
+// Listen waits for a peer to Dial in, then sets up a key exchange
+// and session.
+func Listen(ch Channel, c *Cipher) (*Session, error) {
+	var peer [64]byte
+	pub, priv, err := GenerateKeyPair()
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure the entire peer key is read.
+	_, err = io.ReadFull(ch, peer[:])
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ch.Write(pub[:])
+	if err != nil {
+		return nil, err
+	}
+
+	s := NewSession(ch, c)
+
+	s.KeyExchange(priv, &peer, false)
+	return s, nil
+}
+
+// Rekey is used to perform the key exchange once both sides have
+// exchanged their public keys. The underlying message protocol will
+// need to actually initiate and carry out the key exchange, and call
+// this once that is finished. The private key will be zeroised after
+// calling this function. If the session is on the side that initiated
+// the key exchange (e.g. by calling Dial), it should set the dialer
+// argument to true. This will also reset the message counters for the
+// session, as it will cause the session to use a new key.
+func (s *Session) KeyExchange(priv, peer *[64]byte, dialer bool) {
+	// This function denotes the dialer, who initiates the session,
+	// as A. The listener is denoted as B. A is started using Dial,
+	// and B is started using Listen.
+	if dialer {
+		// The first 32 bytes are the A->B link, where A is the
+		// dialer. This key material should be used to set up the
+		// A send key.
+		keyExchange(s.sendKey, priv[:32], peer[:32])
+
+		// The last 32 bytes are the B->A link, where A is the
+		// dialer. This key material should be used to set up the A
+		// receive key.
+		keyExchange(s.recvKey, priv[32:], peer[32:])
+	} else {
+		// The first 32 bytes are the A->B link, where A is the
+		// dialer. This key material should be used to set up the
+		// B receive key.
+		keyExchange(s.recvKey, priv[:32], peer[:32])
+
+		// The last 32 bytes are the B->A link, where A is the
+		// dialer. This key material should be used to set up the
+		// B send key.
+		keyExchange(s.sendKey, priv[32:], peer[32:])
+	}
+	s.lastSent = 0
+	s.lastRecv = 0
 }
 
 const (
