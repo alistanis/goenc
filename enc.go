@@ -446,6 +446,11 @@ func (s *Session) KeyExchange(priv, peer *[64]byte, dialer bool) {
 }
 
 const (
+	// testComplexity is unexported because we don't want to use such a weak key in the wild
+	testComplexity = 1 << (iota + 7)
+)
+
+const (
 	// N Complexity in powers of 2 for key Derivation
 	InteractiveComplexity = 1 << (iota + 14)
 	Complexity15

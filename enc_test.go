@@ -15,10 +15,10 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-func TestBCFileIO(t *testing.T) {
+func TestFileIO(t *testing.T) {
 
 	Convey("We can succesfully perform file writing and reading using the block cipher interface functions", t, func() {
-		bc, err := NewCipher(Mock, 16384)
+		bc, err := NewCipher(Mock, testComplexity)
 		So(err, ShouldBeNil)
 		d, err := ioutil.TempDir("/tmp", "")
 		So(err, ShouldBeNil)
@@ -70,28 +70,35 @@ var (
 )
 
 func init() {
-	gcm, err := NewCipher(GCM, InteractiveComplexity)
+	cbc, err := NewCipher(CBC, testComplexity)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
 
-	cbc, err := NewCipher(CBC, InteractiveComplexity)
+	cfb, err := NewCipher(CFB, testComplexity)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
-	ctr, err := NewCipher(CTR, InteractiveComplexity)
+	ctr, err := NewCipher(CTR, testComplexity)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
-	nacl, err := NewCipher(NaCL, InteractiveComplexity, []byte("this is a pad to use for our key mwahahaha 123456789"))
+
+	gcm, err := NewCipher(GCM, testComplexity)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
-	ciphers = []*Cipher{gcm, cbc, ctr, nacl}
+
+	nacl, err := NewCipher(NaCL, testComplexity, []byte("this is a pad to use for our key mwahahaha 123456789"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(-1)
+	}
+	ciphers = []*Cipher{cbc, cfb, ctr, gcm, nacl}
 }
 
 func TestSessionSetup(t *testing.T) {

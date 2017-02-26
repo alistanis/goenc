@@ -90,12 +90,12 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 
 // DecryptString decrypts ciphertext using the given key
 func DecryptString(key, ciphertext string) (string, error) {
-	b, err := Decrypt([]byte(ciphertext), []byte(key))
+	b, err := Decrypt([]byte(key), []byte(ciphertext))
 	return string(b), err
 }
 
 // EncryptString encrypts ciphertext using the given key
 func EncryptString(key, plaintext string) (string, error) {
-	b, err := Encrypt([]byte(plaintext), []byte(key))
+	b, err := Encrypt([]byte(key), []byte(plaintext))
 	return string(b), err
 }
