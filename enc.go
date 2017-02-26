@@ -27,12 +27,7 @@ import (
 )
 
 /*
-	TODO(cmc): Add encrypted private key decryption
-	TODO(cmc): Support loading and parsing private/public keys from different formats
-	TODO(cmc): Finish writing tests
-	TODO(cmc): Add HMAC support
-	TODO(cmc): Verify this isn't horrifically insecure
-
+	TODO(cmc): Verify this isn't horrifically insecure and have this reviewed by an expert before publishing
 */
 
 type BlockCipher interface {
@@ -122,7 +117,6 @@ func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
 
 	out, err := c.BlockCipher.Encrypt(key, plaintext)
 	Zero(key)
-
 	if err != nil {
 		return nil, err
 	}
@@ -205,12 +199,16 @@ func UnmarshalMessage(in []byte) (*Message, error) {
 type Channel io.ReadWriter
 
 type Session struct {
-	lastSent uint32
-	lastRecv uint32
 	Cipher   BlockCipher
 	Channel  Channel
+	lastSent uint32
+	lastRecv uint32
 	sendKey  []byte
 	recvKey  []byte
+}
+
+func NewSession(ch Channel, c BlockCipher) *Session {
+	return &Session{Cipher: c, Channel: ch}
 }
 
 func (s *Session) LastSent() uint32 {
@@ -242,6 +240,7 @@ func (s *Session) Decrypt(message []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// if this number is less than or equal to the last received message, this is a replay and we bail
 	if m.Number <= s.lastRecv {
 		return nil, encerrors.ErrInvalidMessageID
 	}
