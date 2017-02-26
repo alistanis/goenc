@@ -1,56 +1,37 @@
 package goenc
 
 import (
-	"fmt"
-	"testing"
-
-	"crypto/rand"
-
 	"bytes"
+	"io/ioutil"
+	"os"
+	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestEncryptDecrypt(t *testing.T) {
-	Convey("We can test encrypting and decrpyting bytes and strings", t, func() {
-		s := "this is a test string to encrypt"
-		key := make([]byte, 32)
-		_, err := rand.Read(key)
+func TestBCFileIO(t *testing.T) {
+
+	Convey("We can succesfully perform file writing and reading using the block cipher interface functions", t, func() {
+		bc, err := NewCipher(Mock, 16384)
+		So(err, ShouldBeNil)
+		d, err := ioutil.TempDir("/tmp", "")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(d)
+		tf, err := ioutil.TempFile(d, "")
 		So(err, ShouldBeNil)
 
-		es, err := EncryptString(s, string(key))
-		So(err, ShouldBeNil)
-		So(s, ShouldNotEqual, es)
+		data := []byte("test data we'd like to 'encrypt' and save to file")
+		key := []byte("test key which is meaningless")
 
-		ds, err := DecryptString(es, string(key))
+		err = BCEncryptAndSave(bc, key, data, tf.Name())
 		So(err, ShouldBeNil)
-		So(ds, ShouldEqual, s)
+
+		err = tf.Close()
+		So(err, ShouldBeNil)
+
+		nd, err := BCReadEncryptedFile(bc, key, tf.Name())
+		So(err, ShouldBeNil)
+		So(bytes.Equal(data, nd), ShouldBeTrue)
 	})
-
-	Convey("We can test encrypting and decrypting bytes using secretbox (NaCL)", t, func() {
-		pad := make([]byte, 32)
-		_, err := rand.Read(pad)
-		So(err, ShouldBeNil)
-
-		b := []byte("This is a message we'd like to encrypt")
-		k := []byte("super weak key")
-
-		out, err := NaCLEncrypt(pad, k, b)
-		So(err, ShouldBeNil)
-		So(bytes.Equal(b, out), ShouldBeFalse)
-
-		msg, err := NaCLDecrypt(pad, k, out)
-		So(err, ShouldBeNil)
-
-		So(bytes.Equal(b, msg), ShouldBeTrue)
-
-		pad, out, err = RandomPadNaCLEncrypt(k, b)
-		So(bytes.Equal(b, out), ShouldBeFalse)
-		msg, err = NaCLDecrypt(pad, k, out)
-		So(bytes.Equal(b, msg), ShouldBeTrue)
-	})
-}
-
-func TestSSHKeyPair(t *testing.T) {
 
 }

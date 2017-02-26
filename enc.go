@@ -2,29 +2,28 @@
 // work is derived from many sources:
 //
 // http://stackoverflow.com/questions/21151714/go-generate-an-ssh-public-key
-// https://github.com/andmarios/golang-nacl-secretbox
 // https://golang.org/pkg/crypto/cipher/
-
+// https://leanpub.com/gocrypto/read#leanpub-auto-aes-cbc
+// https://github.com/hashicorp/memberlist/blob/master/security.go
 package goenc
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
+	"encoding/binary"
 	"io"
-
-	"bytes"
 
 	"io/ioutil"
 
-	"fmt"
+	"os"
 
+	"github.com/alistanis/goenc/aes/cbc"
+	"github.com/alistanis/goenc/aes/cfb"
+	"github.com/alistanis/goenc/aes/ctr"
+	"github.com/alistanis/goenc/aes/gcm"
+	"github.com/alistanis/goenc/encerrors"
+	"github.com/alistanis/goenc/generate"
+	"github.com/alistanis/goenc/nacl"
 	"golang.org/x/crypto/nacl/secretbox"
-	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/scrypt"
 )
 
 /*
@@ -36,182 +35,238 @@ import (
 
 */
 
-const (
-	keySize = 32
-)
-
-// Decrypt decrypts ciphertext using the given key
-func Decrypt(ciphertext, key []byte) ([]byte, error) {
-
-	// Create the AES cipher
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(ciphertext) < aes.BlockSize {
-		return nil, errors.New("Ciphertext is shorter than aes.BlockSize")
-	}
-
-	// get first 16 bytes from ciphertext
-	iv := ciphertext[:aes.BlockSize]
-
-	// Remove the IV from the ciphertext
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	// Return a decrypted stream
-	stream := cipher.NewCFBDecrypter(block, iv)
-
-	// Decrypt bytes from ciphertext
-	stream.XORKeyStream(ciphertext, ciphertext)
-
-	return ciphertext, nil
+type BlockCipher interface {
+	Encrypt(key, plaintext []byte) ([]byte, error)
+	Decrypt(key, ciphertext []byte) ([]byte, error)
+	KeySize() int
 }
 
-// Encrypt encrypts ciphertext using the given key.
-// NOTE: This is not secure without being authenticated (crypto/hmac)
-func Encrypt(plaintext, key []byte) ([]byte, error) {
-	// Create the AES cipher
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// Empty array of 16 + plaintext length
-	// Include the IV at the beginning
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-
-	// Slice of first 16 bytes
-	iv := ciphertext[:aes.BlockSize]
-
-	// Write 16 rand bytes to fill iv
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-
-	// Return an encrypted stream
-	stream := cipher.NewCFBEncrypter(block, iv)
-
-	// Encrypt bytes from plaintext to ciphertext
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-	return ciphertext, nil
-}
-
-// DecryptString decrypts ciphertext using the given key
-func DecryptString(ciphertext, key string) (string, error) {
-	b, err := Decrypt([]byte(ciphertext), []byte(key))
-	return string(b), err
-}
-
-// EncryptString encrypts ciphertext using the given key
-func EncryptString(plaintext, key string) (string, error) {
-	b, err := Encrypt([]byte(plaintext), []byte(key))
-	return string(b), err
-}
-
-// SSHKeyPair generates private and public key bytes
-func SSHKeyPair() (privateKeyBytes, publicKeyBytes []byte, err error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		return nil, nil, err
-	}
-	buf := bytes.NewBuffer(privateKeyBytes)
-	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
-	if err = pem.Encode(buf, privateKeyPEM); err != nil {
-		return nil, nil, err
-	}
-
-	// generate and write public key
-	pub, err := ssh.NewPublicKey(&privateKey.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	publicKeyBytes = ssh.MarshalAuthorizedKey(pub)
-	return
-}
-
-// GenerateAndSaveSSHKeyPair generates a new ssh private key and public key and saves them to the given paths
-func GenerateAndSaveSSHKeyPair(privateKeyPath, pubkeyPath string) error {
-	pr, pub, err := SSHKeyPair()
+func BCEncryptAndSaveWithPerms(cipher BlockCipher, key, plaintext []byte, path string, perm os.FileMode) error {
+	data, err := cipher.Encrypt(key, plaintext)
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(privateKeyPath, pr, 0600); err != nil {
-		return err
-	}
-	return ioutil.WriteFile(pubkeyPath, pub, 0644)
+	return ioutil.WriteFile(path, data, perm)
 }
+
+func BCEncryptAndSave(cipher BlockCipher, key, plaintext []byte, path string) error {
+	return BCEncryptAndSaveWithPerms(cipher, key, plaintext, path, 0644)
+}
+
+func BCReadEncryptedFile(cipher BlockCipher, key []byte, path string) ([]byte, error) {
+	ciphertext, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := cipher.Decrypt(key, ciphertext)
+	return plaintext, err
+}
+
+type CipherKind int
 
 const (
-	nonceSize = 24
+	GCM CipherKind = iota
+	NaCL
+	CFB
+	CBC
+	CTR
+	Mock
 )
 
-// NaCLEncrypt salts a key using pad and encrypts a message
-func NaCLEncrypt(pad, key, message []byte) (out []byte, err error) {
-	if len(pad) == 0 {
-		return nil, errors.New("pad had a length of 0, it must be at least 32 bytes")
-	}
-	// NaCl's key has a constant size of 32 bytes.
-	// The user provided key probably is less than that. We pad it with
-	// a long enough string and truncate anything we don't need later on.
-	key = append(key, pad...)
+const (
+	SaltSize = 64
+)
 
-	// NaCl's key should be of type [32]byte.
-	// Here we create it and truncate key bytes beyond 32
-	naclKey := new([keySize]byte)
-	copy(naclKey[:], key[:keySize])
-
-	// Nonce is a [24]byte variable that should be unique amongst messages.
-	// Nonce is generated by the encrypter.
-	// 24 bytes is large enough to avoid collisions while reading from rand.
-	// If it suits you better, you may use a non random nonce (e.g a counter).
-	// It only has to change per message.
-	nonce := new([nonceSize]byte)
-	// Read bytes from random and put them in nonce until it is full.
-	_, err = io.ReadFull(rand.Reader, nonce[:])
-	if err != nil {
-		return nil, fmt.Errorf("Could not read from random: %s", err)
-	}
-	// out will hold the nonce and the encrypted message (ciphertext)
-	out = make([]byte, nonceSize)
-	// Copy the nonce to the start of out
-	copy(out, nonce[:])
-	// Encrypt the message and append it to out, assign the result to out
-	out = secretbox.Seal(out, message, nonce, naclKey)
-	return out, err
+type Cipher struct {
+	BlockCipher
+	DerivedKeyN int
 }
 
-// NaCLDecrypt salts a key using pad and decrypts a message
-func NaCLDecrypt(pad, key, data []byte) (out []byte, err error) {
-	key = append(key, pad...)
-
-	// NaCl's key should be of type [32]byte.
-	// Here we create it and truncate key bytes beyond 32
-	naclKey := new([keySize]byte)
-	copy(naclKey[:], key[:keySize])
-
-	// The nonce is of type [24]byte and part of the data we will receive
-	nonce := new([nonceSize]byte)
-
-	// Read the nonce from in, it is in the first 24 bytes
-	copy(nonce[:], data[:nonceSize])
-
-	// Decrypt the output of secretbox.Seal which contains the nonce and
-	// the encrypted message
-	message, ok := secretbox.Open(nil, data[nonceSize:], nonce, naclKey)
-	if ok {
-		return message, nil
+func NewCipher(kind CipherKind, derivedKeyN int, args ...[]byte) (*Cipher, error) {
+	c := &Cipher{DerivedKeyN: derivedKeyN}
+	switch kind {
+	case GCM:
+		c.BlockCipher = gcm.New()
+	case NaCL:
+		// special case, we need to define a pad for nacl
+		if len(args) == 0 {
+			return nil, encerrors.ErrNoPadProvided
+		}
+		n := &nacl.Cipher{}
+		n.Pad = args[0]
+		c.BlockCipher = n
+	case CFB:
+		c.BlockCipher = cfb.New()
+	case CBC:
+		c.BlockCipher = cbc.New()
+	case CTR:
+		c.BlockCipher = ctr.New()
+	case Mock:
+		c.BlockCipher = &MockBlockCipher{}
+	default:
+		return nil, encerrors.ErrInvalidCipherKind
 	}
-	return nil, errors.New("Decryption failed")
+	return c, nil
 }
 
-// RandomPadNaCLEncrypt generates a random pad and returns the encrypted data, the pad, and an error if any
-func RandomPadNaCLEncrypt(key, message []byte) (pad, out []byte, err error) {
-	pad = make([]byte, 32)
-	_, err = rand.Read(pad)
+func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
+	salt, err := generate.RandBytes(SaltSize)
 	if err != nil {
-		return
+		return nil, err
 	}
-	out, err = NaCLEncrypt(pad, key, message)
-	return
+
+	key, err := DeriveKey(password, salt, c.DerivedKeyN, c.BlockCipher.KeySize())
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := c.BlockCipher.Encrypt(key, plaintext)
+	Zero(key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	out = append(salt, out...)
+	return out, nil
+}
+
+const Overhead = SaltSize + secretbox.Overhead + generate.NonceSize
+
+func (c *Cipher) Decrypt(password, ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < Overhead {
+		return nil, encerrors.ErrInvalidMessageLength
+	}
+
+	key, err := DeriveKey(password, ciphertext[:SaltSize], c.DerivedKeyN, c.KeySize())
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := c.BlockCipher.Decrypt(key, ciphertext[SaltSize:])
+	Zero(key) // Zero key immediately after
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// MockBlockCipher implements BlockCipher but does nothing
+type MockBlockCipher struct{}
+
+// Encrypt in this case is only implementing the BlockCipher interface, it doesn't do anything
+func (m *MockBlockCipher) Encrypt(key, plaintext []byte) ([]byte, error) {
+	return plaintext, nil
+}
+
+// Decrypt in this case is only implementing the BlockCipher interface, it doesn't do anything
+func (m *MockBlockCipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
+	return ciphertext, nil
+}
+
+func (m *MockBlockCipher) KeySize() int {
+	return 32
+}
+
+type StreamCipher interface {
+	// EncryptStream encrypts bytes into w from r
+	EncryptStream(key []byte, w io.Writer, r io.Reader) error
+	// DecryptStream decrypts bytes into w from r
+	DecryptStream(key []byte, w io.Writer, r io.Reader) error
+}
+
+type Message struct {
+	Number   uint32
+	Contents []byte
+}
+
+func NewMessage(in []byte, num uint32) *Message {
+	return &Message{Contents: in, Number: num}
+}
+
+func (m *Message) Marshal() []byte {
+	out := make([]byte, 4, len(m.Contents)+4)
+	binary.BigEndian.PutUint32(out[:4], m.Number)
+	return append(out, m.Contents...)
+}
+
+func UnmarshalMessage(in []byte) (*Message, error) {
+	m := &Message{}
+	if len(in) <= 4 {
+		return m, encerrors.ErrInvalidMessageLength
+	}
+
+	m.Number = binary.BigEndian.Uint32(in[:4])
+	m.Contents = in[4:]
+	return m, nil
+}
+
+type Channel io.ReadWriter
+
+type Session struct {
+	lastSent uint32
+	lastRecv uint32
+	Cipher   BlockCipher
+	Channel  Channel
+	sendKey  []byte
+	recvKey  []byte
+}
+
+func (s *Session) LastSent() uint32 {
+	return s.lastSent
+}
+
+func (s *Session) LastRecv() uint32 {
+	return s.lastRecv
+}
+
+func (s *Session) Encrypt(message []byte) ([]byte, error) {
+	if len(message) == 0 {
+		return nil, encerrors.ErrInvalidMessageLength
+	}
+
+	s.lastSent++
+	m := NewMessage(message, s.lastSent)
+	return s.Cipher.Encrypt(s.sendKey, m.Marshal())
+}
+
+func (s *Session) Decrypt(message []byte) ([]byte, error) {
+	out, err := s.Cipher.Decrypt(s.recvKey, message)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := UnmarshalMessage(out)
+	if err != nil {
+		return nil, err
+	}
+
+	if m.Number <= s.lastRecv {
+		return nil, encerrors.ErrInvalidMessageID
+	}
+
+	s.lastRecv = m.Number
+
+	return m.Contents, nil
+}
+
+// DeriveKey generates a new NaCl key from a passphrase and salt.
+// This is a costly operation.
+func DeriveKey(pass, salt []byte, N, keySize int) ([]byte, error) {
+	var naclKey = make([]byte, keySize)
+	key, err := scrypt.Key(pass, salt, N, 8, 1, keySize)
+	if err != nil {
+		return nil, err
+	}
+
+	copy(naclKey, key)
+	Zero(key)
+	return naclKey, nil
+}
+
+func Zero(data []byte) {
+	for i := 0; i < len(data); i++ {
+		data[i] = 0
+	}
 }
