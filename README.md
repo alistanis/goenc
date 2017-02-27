@@ -184,6 +184,7 @@ TODO
     *  The way it works now on a session is that the key will be derived for every message - this is slow, but potentially more secure
        * If one algo has a flaw in which a prior key is discovered, only that message could be read
        * That should still be left up to the user
+    *  [ ] Allow user given salt   
 ```        
         
 #Special Thanks

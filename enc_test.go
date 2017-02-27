@@ -118,6 +118,37 @@ func TestGenerateKeys(t *testing.T) {
 	}
 }
 
+func TestDeriveKey(t *testing.T) {
+	Convey("We can test a derived key in order to encrypt and decrypt text", t, func() {
+		c, err := NewCipher(GCM, testComplexity)
+		So(err, ShouldBeNil)
+
+		salt, err := generate.RandBytes(SaltSize)
+		So(err, ShouldBeNil)
+
+		key, err := DeriveKey([]byte("password"), salt, c.DerivedKeyN, c.BlockCipher.KeySize())
+		So(err, ShouldBeNil)
+		plaintext := []byte("This is some data")
+		data, err := c.BlockCipher.Encrypt(key, plaintext)
+		So(err, ShouldBeNil)
+
+		key2, err := DeriveKey([]byte("password"), salt, c.DerivedKeyN, c.BlockCipher.KeySize())
+		So(err, ShouldBeNil)
+
+		data, err = c.BlockCipher.Decrypt(key2, data)
+		So(err, ShouldBeNil)
+		So(bytes.Equal(plaintext, data), ShouldBeTrue)
+	})
+}
+
+func TestDeriveKeyErrors(t *testing.T) {
+	Convey("We can get derived key errors when we should", t, func() {
+
+		_, err := DeriveKey([]byte{}, []byte{}, 0, 0)
+		So(err, ShouldNotBeNil)
+	})
+}
+
 func TestSessionSetup(t *testing.T) {
 
 	Convey("We can test all ciphers with a session", t, func() {
