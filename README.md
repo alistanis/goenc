@@ -41,11 +41,13 @@ Each package can also be used directly, as the `Cipher` struct in each simply wr
 
 This package supports the following types of encryption, all using the Go stdlib with exception for NaCL, which uses [Secretbox from the /x/crypto package](https://godoc.org/golang.org/x/crypto/nacl/secretbox):
 
+---
 * AES-CBC
 * AES-CFB (Does not include HMAC, probably don't use this - I will happily take a contribution fixing this)
 * AES-CTR 
 * AES-GCM
 * NaCL - with a user provided pad
+---
 
 #####Example Usage of package functions
     
