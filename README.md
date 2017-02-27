@@ -43,6 +43,7 @@ This package supports the following types of encryption, all using the Go stdlib
 
 #####Example Usage of package functions
     
+```go
     key := []byte("some 32 byte key") // obviously this would fail without being 32 bytes
     ciphertext, err := gcm.Encrypt(key, []byte("super secret message"))
     if err != nil {
@@ -53,9 +54,10 @@ This package supports the following types of encryption, all using the Go stdlib
         return err  
     }
     fmt.Println(plaintext) // super secret message
-       
+```       
 #####Example Usage of BlockCipher interface
 
+```go
     c, err := goenc.NewCipher(goenc.CBC, goenc.InteractiveComplexity)
     if err != nil {
         return err
@@ -69,13 +71,15 @@ This package supports the following types of encryption, all using the Go stdlib
         return err
     }    
     fmt.Println(plaintext) // super secret message
+```
     
 #####Example Usages of Session
 
 Note: Retries and connection breaking are not shown here
 
 ######As a server   
- 
+
+```go
     // wait until a client connects and performs a key exchange
     s, err := goenc.Listen(readWriter, cipher)
     // if exchange is bad or none was given, we return
@@ -109,8 +113,11 @@ Note: Retries and connection breaking are not shown here
                 // successfully parsed but we don't know what to do, probably retry parsing
         }
     }
+```
 
 ######As a client
+
+```go    
     // initial connection to underlying conn of readWriter
     s, err := goenc.Dial(readWriter, cipher)
     if err != nil {
@@ -148,6 +155,7 @@ Note: Retries and connection breaking are not shown here
                     // successfully parsed but we don't know what to do, probably retry parsing
             }
         }
+```
 
 TODO
 ---
