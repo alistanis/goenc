@@ -9,7 +9,10 @@ import (
 	"github.com/alistanis/goenc/generate"
 )
 
+// NonceSize // generic NonceSize
 const NonceSize = generate.NonceSize
+
+// KeySize // generic KeySize
 const KeySize = generate.KeySize
 
 // Cipher to implement the BlockCipher interface
@@ -167,6 +170,7 @@ func DecryptStringWithID(message string, k KeyRetriever) (string, error) {
 	return string(data), err
 }
 
+// KeyRetriever represents a type that should be used in order to retrieve a key from a datastore
 type KeyRetriever interface {
 	KeyForID(uint32) ([]byte, error)
 }
@@ -186,24 +190,4 @@ func NewGCMHelper(f func(uint32) ([]byte, error)) *GCMHelper {
 // KeyForID implements the KeyRetriever interface, it should be used to get a Key for the given ID
 func (h *GCMHelper) KeyForID(u uint32) ([]byte, error) {
 	return h.KeyForIDFunc(u)
-}
-
-// EncryptWithID is a convenience function
-func (h *GCMHelper) EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
-	return EncryptWithID(key, message, sender)
-}
-
-// DecryptWithID is a convenience function
-func (h *GCMHelper) DecryptWithID(message []byte) ([]byte, error) {
-	return DecryptWithID(message, h)
-}
-
-// EncryptStringWithID is a convenience function
-func (h *GCMHelper) EncryptStringWithID(key, message string, sender uint32) (string, error) {
-	return EncryptStringWithID(key, message, sender)
-}
-
-// DecryptStringWithID is a convenience function
-func (h *GCMHelper) DecryptStringWithID(message string) (string, error) {
-	return DecryptStringWithID(message, h)
 }

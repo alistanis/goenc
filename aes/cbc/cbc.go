@@ -31,7 +31,7 @@ func pad(in []byte) []byte {
 	return in
 }
 
-// unpad removes unecessary bytes that were added during initial padding
+// unpad removes unnecessary bytes that were added during initial padding
 func unpad(in []byte) []byte {
 	if len(in) == 0 {
 		return nil

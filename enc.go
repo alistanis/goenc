@@ -1,11 +1,12 @@
 // package goenc contains functions for working with encryption
+package goenc
+
 // work is derived from many sources:
 //
 // http://stackoverflow.com/questions/21151714/go-generate-an-ssh-public-key
 // https://golang.org/pkg/crypto/cipher/
 // https://leanpub.com/gocrypto/read#leanpub-auto-aes-cbc
 // https://github.com/hashicorp/memberlist/blob/master/security.go
-package goenc
 
 import (
 	"crypto/rand"
@@ -143,6 +144,7 @@ func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
 	return out, nil
 }
 
+// Overhead is the amount of Overhead contained in the ciphertext
 const Overhead = SaltSize + secretbox.Overhead + generate.NonceSize
 
 // Decrypt takes a password and ciphertext, derives a key, and attempts to decrypt that data
@@ -158,7 +160,6 @@ func (c *Cipher) Decrypt(password, ciphertext []byte) ([]byte, error) {
 
 	out, err := c.BlockCipher.Decrypt(key, ciphertext[SaltSize:])
 	Zero(key)
-	key = nil
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +180,7 @@ func (m *MockBlockCipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
+// KeySize is a mock key size to use with the mock cipher
 func (m *MockBlockCipher) KeySize() int {
 	return 32
 }
@@ -216,6 +218,7 @@ func UnmarshalMessage(in []byte) (*Message, error) {
 // Channel is a typed io.ReadWriter used for communicating securely
 type Channel io.ReadWriter
 
+// Session represents a session that can be used to pass messages over a secure channel
 type Session struct {
 	Cipher   *Cipher
 	Channel  Channel
@@ -411,7 +414,7 @@ func Listen(ch Channel, c *Cipher) (*Session, error) {
 	return s, nil
 }
 
-// Rekey is used to perform the key exchange once both sides have
+// KeyExchange - Rekey is used to perform the key exchange once both sides have
 // exchanged their public keys. The underlying message protocol will
 // need to actually initiate and carry out the key exchange, and call
 // this once that is finished. The private key will be zeroised after
@@ -455,13 +458,21 @@ const (
 
 const (
 	// N Complexity in powers of 2 for key Derivation
+
+	// InteractiveComplexity - recommended complexity for interactive sessions
 	InteractiveComplexity = 1 << (iota + 14)
+	// Complexity15 is 2^15
 	Complexity15
+	// Complexity16 is 2^16
 	Complexity16
+	// Complexity17 is 2^17
 	Complexity17
+	// Complexity18 is 2^18
 	Complexity18
+	// Complexity19 is 2^18
 	Complexity19
-	AgressiveComplexity
+	// AggressiveComplexity is 2^19 (don't use this unless you have relatively strong CPU power
+	AggressiveComplexity
 )
 
 // DeriveKey generates a new NaCl key from a passphrase and salt.
@@ -475,7 +486,6 @@ func DeriveKey(pass, salt []byte, N, keySize int) ([]byte, error) {
 
 	copy(naclKey, key)
 	Zero(key)
-	key = nil
 	return naclKey, nil
 }
 

@@ -17,7 +17,6 @@ func Key() (*[KeySize]byte, error) {
 	return key, err
 }
 
-
 // Nonce creates a new random nonce.
 func Nonce() (*[NonceSize]byte, error) {
 	nonce := new([NonceSize]byte)

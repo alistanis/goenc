@@ -9,6 +9,7 @@ import (
 
 	"fmt"
 
+	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
 	"github.com/kisom/testio"
 	. "github.com/smartystreets/goconvey/convey"
@@ -17,7 +18,7 @@ import (
 
 func TestFileIO(t *testing.T) {
 
-	Convey("We can succesfully perform file writing and reading using the block cipher interface functions", t, func() {
+	Convey("We can successfully perform file writing and reading using the block cipher interface functions", t, func() {
 		bc, err := NewCipher(Mock, testComplexity)
 		So(err, ShouldBeNil)
 		d, err := ioutil.TempDir("/tmp", "")
@@ -185,6 +186,8 @@ func TestSessionListen(t *testing.T) {
 			out, err := bobSession.Receive()
 			So(err, ShouldBeNil)
 
+			So(bobSession.LastRecv(), ShouldBeGreaterThan, 0)
+			So(aliceSession.LastSent(), ShouldBeGreaterThan, 0)
 			// The NBA is always listening, on and off the court.
 			oldMessage = out
 
@@ -214,4 +217,36 @@ func TestSessionListen(t *testing.T) {
 		}
 	})
 
+}
+
+func TestErrors(t *testing.T) {
+	Convey("We can get appropriate errors", t, func() {
+		_, err := NewCipher(NaCL, testComplexity)
+		So(err, ShouldEqual, encerrors.ErrNoPadProvided)
+
+		_, err = NewCipher(50, testComplexity)
+		So(err, ShouldEqual, encerrors.ErrInvalidCipherKind)
+
+		_, err = UnmarshalMessage([]byte{})
+		So(err, ShouldEqual, encerrors.ErrInvalidMessageLength)
+
+		c, err := NewCipher(GCM, testComplexity)
+		So(err, ShouldBeNil)
+		s := NewSession(testio.NewBufCloser(nil), c)
+
+		_, err = s.Decrypt([]byte{})
+		So(err, ShouldNotBeNil)
+
+		msg := []byte("this is a message")
+		k, err := generate.Key()
+		So(err, ShouldBeNil)
+		s.sendKey = k
+		s.recvKey = k
+		data, err := s.Encrypt(msg)
+		So(err, ShouldBeNil)
+		s.lastRecv = 40
+		_, err = s.Decrypt(data)
+		So(err, ShouldNotBeNil)
+
+	})
 }

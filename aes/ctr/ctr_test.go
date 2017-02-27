@@ -23,6 +23,7 @@ func TestEncrypt(t *testing.T) {
 		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
 
 		data, err = Decrypt(key, data)
+		So(err, ShouldBeNil)
 		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
 	})
 }
@@ -39,6 +40,7 @@ func TestCipher_Encrypt(t *testing.T) {
 		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
 
 		data, err = c.Decrypt(key, data)
+		So(err, ShouldBeNil)
 		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
 	})
 }

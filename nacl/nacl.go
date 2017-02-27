@@ -38,7 +38,7 @@ func (c *Cipher) KeySize() int {
 	return keySize
 }
 
-// NaCLEncrypt salts a key using pad and encrypts a message
+// Encrypt salts a key using pad and encrypts a message
 func Encrypt(pad, key, message []byte) (out []byte, err error) {
 	if len(pad) < 32 {
 		return nil, fmt.Errorf("pad had a length of %d, it must be at least 32 bytes", len(pad))
@@ -66,7 +66,7 @@ func Encrypt(pad, key, message []byte) (out []byte, err error) {
 	return out, err
 }
 
-// NaCLDecrypt salts a key using pad and decrypts a message
+// Decrypt salts a key using pad and decrypts a message
 func Decrypt(pad, key, data []byte) (out []byte, err error) {
 	key = append(key, pad...)
 
@@ -90,7 +90,7 @@ func Decrypt(pad, key, data []byte) (out []byte, err error) {
 	return nil, errors.New("Decryption failed")
 }
 
-// RandomPadNaCLEncrypt generates a random pad and returns the encrypted data, the pad, and an error if any
+// RandomPadEncrypt generates a random pad and returns the encrypted data, the pad, and an error if any
 func RandomPadEncrypt(key, message []byte) (pad, out []byte, err error) {
 	pad = make([]byte, 32)
 	_, err = rand.Read(pad)

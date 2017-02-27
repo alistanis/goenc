@@ -3,6 +3,7 @@ package encerrors
 import "errors"
 
 var (
+	// ErrInvalidKeyLength repesents when a key has been used with an invalid length
 	ErrInvalidKeyLength     = errors.New("goenc: invalid key length")
 	ErrInvalidMessageLength = errors.New("goenc: invalid message length")
 	ErrInvalidSum           = errors.New("goenc: invalid checksum")
