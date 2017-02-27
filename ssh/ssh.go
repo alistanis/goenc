@@ -1,3 +1,4 @@
+// Package ssh supports generation of key pairs in different formats with as few parameters as possible
 package ssh
 
 import (

@@ -1,9 +1,10 @@
 // Package nacl provides encryption by salting a key with a pad
+package nacl
+
 // https://en.wikipedia.org/wiki/NaCl_(software)
 // work is derived from:
 //
 // https://github.com/andmarios/golang-nacl-secretbox
-package nacl
 
 import (
 	"crypto/rand"

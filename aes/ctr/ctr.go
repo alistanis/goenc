@@ -1,6 +1,7 @@
 // Package ctr supports ctr encryption
-// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Counter_.28CTR.29
 package ctr
+
+// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Counter_.28CTR.29
 
 import (
 	"crypto/aes"

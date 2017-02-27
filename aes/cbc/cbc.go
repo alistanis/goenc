@@ -1,6 +1,7 @@
 // Pckage cbc supports cbc encryption
-// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_.28CBC.29
 package cbc
+
+// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Block_Chaining_.28CBC.29
 
 import (
 	"crypto/aes"

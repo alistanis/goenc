@@ -1,6 +1,7 @@
 // Package gcm supports gcm encryption
-// https://en.wikipedia.org/wiki/Galois/Counter_Mode
 package gcm
+
+// https://en.wikipedia.org/wiki/Galois/Counter_Mode
 
 import (
 	"crypto/aes"
