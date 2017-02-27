@@ -107,11 +107,14 @@ func TestErrors(t *testing.T) {
 		_, err = Encrypt(key, []byte{})
 		So(err.Error(), ShouldEqual, errText)
 
+		_, err = Decrypt(key, []byte{})
+		So(err, ShouldNotBeNil)
+
 		_, err = EncryptWithID(key, []byte{}, 1)
 		So(err.Error(), ShouldEqual, errText)
 
 		_, err = DecryptWithID([]byte{}, nil)
-
+		So(err, ShouldNotBeNil)
 		data, err := generate.RandBytes(NonceSize + 5)
 		So(err, ShouldBeNil)
 		_, err = DecryptWithID(data, &R{})
