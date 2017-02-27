@@ -167,6 +167,8 @@ TODO
 1. [ ] Get project reviewed (if you are a security expert interested in reviewing this, please contact me and let me know if you find anything)
 2. [ ] More complete documentation with examples
     *  [ ] Document full examples of package functions and the small differences they have
+    *  [ ] Document SenderID functions in the GCM package and give a real world example
+3. [ ] Implement SenderID functions in packages other than GCM    
 ```        
         
 #Special Thanks
