@@ -220,8 +220,8 @@ type Channel io.ReadWriter
 
 // Session represents a session that can be used to pass messages over a secure channel
 type Session struct {
-	Cipher   *Cipher
-	Channel  Channel
+	Cipher *Cipher
+	Channel
 	lastSent uint32
 	lastRecv uint32
 	sendKey  *[32]byte
