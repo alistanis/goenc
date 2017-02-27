@@ -13,7 +13,7 @@ import (
 )
 
 // NonceSize // generic NonceSize
-const NonceSize = generate.NonceSize
+const NonceSize = 12
 
 // KeySize // generic KeySize
 const KeySize = generate.KeySize
@@ -54,7 +54,7 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	nonce, err := generate.Nonce()
+	nonce, err := generate.GCMNonce()
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
 		return nil, err
 	}
 
-	nonce, err := generate.Nonce()
+	nonce, err := generate.GCMNonce()
 	if err != nil {
 		return nil, err
 	}

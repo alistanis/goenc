@@ -31,6 +31,18 @@ func TestNonce(t *testing.T) {
 	})
 }
 
+func TestGCMNonce(t *testing.T) {
+	Convey("We can get a random nonce", t, func() {
+		n, err := GCMNonce()
+		So(err, ShouldBeNil)
+		So(len(n[:]), ShouldEqual, GCMNonceSize)
+		n2, err := GCMNonce()
+		So(err, ShouldBeNil)
+		So(len(n2[:]), ShouldEqual, GCMNonceSize)
+		So(bytes.Equal(n[:], n2[:]), ShouldBeFalse)
+	})
+}
+
 func TestRandBytes(t *testing.T) {
 	Convey("We can get random bytes", t, func() {
 		b, err := RandBytes(KeySize)

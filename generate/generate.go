@@ -10,6 +10,8 @@ const (
 	KeySize = 32
 	// NonceSize is the default NonceSize
 	NonceSize = 24
+	// GCMNonce is the default gcmnonce size
+	GCMNonceSize = 12
 )
 
 // Key creates a new random secret key.
@@ -27,6 +29,16 @@ func Nonce() (*[NonceSize]byte, error) {
 		return nil, err
 	}
 
+	return nonce, nil
+}
+
+// GCMNonce returns a nonce with a GCMNonceSize
+func GCMNonce() (*[GCMNonceSize]byte, error) {
+	nonce := new([GCMNonceSize]byte)
+	_, err := io.ReadFull(rand.Reader, nonce[:])
+	if err != nil {
+		return nil, err
+	}
 	return nonce, nil
 }
 
