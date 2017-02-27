@@ -20,21 +20,22 @@ const KeySize = generate.KeySize
 
 // Cipher to implement the BlockCipher interface
 type Cipher struct {
+	NonceSize int
 }
 
 // New returns a new GCM cipher
 func New() *Cipher {
-	return &Cipher{}
+	return &Cipher{NonceSize: NonceSize}
 }
 
 // Encrypt implements the BlockCipher interface
 func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
-	return Encrypt(key, plaintext)
+	return Encrypt(key, plaintext, c.NonceSize)
 }
 
 // Decrypt implements the BlockCipher interface
 func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	return Decrypt(key, ciphertext)
+	return Decrypt(key, ciphertext, c.NonceSize)
 }
 
 // KeySize returns the GCM key size
@@ -43,13 +44,13 @@ func (c *Cipher) KeySize() int {
 }
 
 // Encrypt secures a message using AES-GCM.
-func Encrypt(key, plaintext []byte) ([]byte, error) {
+func Encrypt(key, plaintext []byte, nonceSize int) ([]byte, error) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	gcm, err := cipher.NewGCMWithNonceSize(c, NonceSize)
+	gcm, err := cipher.NewGCMWithNonceSize(c, nonceSize)
 	if err != nil {
 		return nil, err
 	}
@@ -67,30 +68,30 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 }
 
 // EncryptString is a convenience function for working with strings
-func EncryptString(key, plaintext string) (string, error) {
-	data, err := Encrypt([]byte(key), []byte(plaintext))
+func EncryptString(key, plaintext string, nonceSize int) (string, error) {
+	data, err := Encrypt([]byte(key), []byte(plaintext), nonceSize)
 	return string(data), err
 }
 
 // Decrypt decrypts data using AES-GCM
-func Decrypt(key, ciphertext []byte) ([]byte, error) {
+func Decrypt(key, ciphertext []byte, nonceSize int) ([]byte, error) {
 	// Create the AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
-	gcm, err := cipher.NewGCMWithNonceSize(block, NonceSize)
+	gcm, err := cipher.NewGCMWithNonceSize(block, nonceSize)
 	if err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, NonceSize)
+	nonce := make([]byte, nonceSize)
 	copy(nonce, ciphertext)
-	return gcm.Open(nil, nonce[:], ciphertext[NonceSize:], nil)
+	return gcm.Open(nil, nonce[:], ciphertext[nonceSize:], nil)
 }
 
 // DecryptString is a convenience function for working with strings
-func DecryptString(key, ciphertext string) (string, error) {
-	data, err := Decrypt([]byte(key), []byte(ciphertext))
+func DecryptString(key, ciphertext string, nonceSize int) (string, error) {
+	data, err := Decrypt([]byte(key), []byte(ciphertext), nonceSize)
 	return string(data), err
 }
 

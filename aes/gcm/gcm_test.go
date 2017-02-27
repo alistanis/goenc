@@ -18,18 +18,18 @@ func TestEncrypt(t *testing.T) {
 		k, err := generate.Key()
 		So(err, ShouldBeNil)
 		key := k[:]
-		data, err := Encrypt(key, []byte(text))
+		data, err := Encrypt(key, []byte(text), NonceSize)
 		So(err, ShouldBeNil)
 		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
 
-		data, err = Decrypt(key, data)
+		data, err = Decrypt(key, data, NonceSize)
 		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
 
-		s, err := EncryptString(string(key), text)
+		s, err := EncryptString(string(key), text, NonceSize)
 		So(err, ShouldBeNil)
 		So(s, ShouldNotEqual, text)
 
-		s, err = DecryptString(string(key), s)
+		s, err = DecryptString(string(key), s, NonceSize)
 		So(err, ShouldBeNil)
 		So(s, ShouldEqual, text)
 	})
@@ -104,10 +104,10 @@ func TestErrors(t *testing.T) {
 		So(err, ShouldBeNil)
 		key := k[:]
 		errText := "crypto/aes: invalid key size 15"
-		_, err = Encrypt(key, []byte{})
+		_, err = Encrypt(key, []byte{}, NonceSize)
 		So(err.Error(), ShouldEqual, errText)
 
-		_, err = Decrypt(key, []byte{})
+		_, err = Decrypt(key, []byte{}, NonceSize)
 		So(err, ShouldNotBeNil)
 
 		_, err = EncryptWithID(key, []byte{}, 1)
