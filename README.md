@@ -166,6 +166,7 @@ TODO
 ```
 1. [ ] Get project reviewed (if you are a security expert interested in reviewing this, please contact me and let me know if you find anything)
 2. [ ] More complete documentation with examples
+    *  [ ] Document full examples of package functions and the small differences they have
 ```        
         
 #Special Thanks
