@@ -27,6 +27,9 @@ func TestSSHKeyPair(t *testing.T) {
 		privBytes, pubBytes, err = LocalKeyPair(RSA1024)
 		So(err, ShouldBeNil)
 
+		_, err = ssh.ParsePrivateKey(privBytes)
+		So(err, ShouldBeNil)
+
 		_, _, _, _, err = ssh.ParseAuthorizedKey(pubBytes)
 		So(err, ShouldBeNil)
 	})
