@@ -10,27 +10,27 @@ The API is built around the `BlockCipher` interface and the `Session` struct.
 `BlockCipher` can be used to encrypt simple messages or small files. 
 
 ```go
-    // BlockCipher represents a cipher that encodes and decodes chunks of data at a time
-    type BlockCipher interface {
-    	Encrypt(key, plaintext []byte) ([]byte, error)
-    	Decrypt(key, ciphertext []byte) ([]byte, error)
-    	KeySize() int
-    }
+// BlockCipher represents a cipher that encodes and decodes chunks of data at a time
+type BlockCipher interface {
+	Encrypt(key, plaintext []byte) ([]byte, error)
+   	Decrypt(key, ciphertext []byte) ([]byte, error)
+   	KeySize() int
+}
 ```
 
 `Session` can be used to perform key exchanges and send secure messages over a "channel" (`io.ReadWriter`)
 It also natively performs key derivation, can handle key exchanges, and can prevent replay attaacks.
 
 ```go
-    // Session represents a session that can be used to pass messages over a secure channel
-    type Session struct {
-    	Cipher   *Cipher
-    	Channel
-    	lastSent uint32
-    	lastRecv uint32
-    	sendKey  *[32]byte
-    	recvKey  *[32]byte
-    }
+// Session represents a session that can be used to pass messages over a secure channel
+type Session struct {
+   	Cipher   *Cipher
+   	Channel
+   	lastSent uint32
+   	lastRecv uint32
+   	sendKey  *[32]byte
+   	recvKey  *[32]byte
+}
 ```
 
 All internal packages implement the `BlockCipher` interface with a `Cipher` struct, allowing for flexibility when working with the `BlockCipher` interface.
@@ -48,33 +48,33 @@ This package supports the following types of encryption, all using the Go stdlib
 #####Example Usage of package functions
     
 ```go
-    key := []byte("some 32 byte key") // obviously this would fail without being 32 bytes
-    ciphertext, err := gcm.Encrypt(key, []byte("super secret message"))
-    if err != nil {
-        return err
-    }
-    plaintext, err := gcm.Decrypt(key, ciphertext)
-    if err != nil {
-        return err  
-    }
-    fmt.Println(plaintext) // super secret message
+key := []byte("some 32 byte key") // obviously this would fail without being 32 bytes
+ciphertext, err := gcm.Encrypt(key, []byte("super secret message"))
+if err != nil {
+    return err
+}
+plaintext, err := gcm.Decrypt(key, ciphertext)
+if err != nil {
+    return err  
+}
+fmt.Println(plaintext) // super secret message
 ```       
 #####Example Usage of BlockCipher interface
 
 ```go
-    c, err := goenc.NewCipher(goenc.CBC, goenc.InteractiveComplexity)
-    if err != nil {
-        return err
-    }
-    ciphertext, err := c.Encrypt(key, []byte("super secret message"))
-    if err != nil {
-        return err       
-    }
-    plaintext, err := c.Decrypt(key, ciphertext)
-    if err != nil {
-        return err
-    }    
-    fmt.Println(plaintext) // super secret message
+c, err := goenc.NewCipher(goenc.CBC, goenc.InteractiveComplexity)
+if err != nil {
+    return err
+}
+ciphertext, err := c.Encrypt(key, []byte("super secret message"))
+if err != nil {
+    return err       
+}
+plaintext, err := c.Decrypt(key, ciphertext)
+if err != nil {
+    return err
+}    
+fmt.Println(plaintext) // super secret message
 ```
     
 #####Example Usages of Session
@@ -84,23 +84,65 @@ Note: Retries and connection breaking are not shown here
 ######As a server   
 
 ```go
-    // wait until a client connects and performs a key exchange
-    s, err := goenc.Listen(readWriter, cipher)
-    // if exchange is bad or none was given, we return
-    if err != nil {
-        return err
+// wait until a client connects and performs a key exchange
+s, err := goenc.Listen(readWriter, cipher)
+// if exchange is bad or none was given, we return
+if err != nil {
+    return err
+}
+
+// s is now a session on the given readWriter (underlying conn) and can wait to receive messages
+for {
+    msg, err := s.Receive()
+    is err != nil {
+        // check for closed connection here and break if it is (not shown)
+        someErrChan <- err
+        continue
     }
     
-    // s is now a session on the given readWriter (underlying conn) and can wait to receive messages
-    for {
-        msg, err := s.Receive()
+    msg, err := someMsgParsingFunc(msg)
+    if err != nil {
+        // garbled message
+        someErrChan <- err
+        continue
+    }
+    
+    switch msg.Type {
+        case SomeCoolThing:
+            err = s.Send(someConstMessage)
+            if err != nil {
+                someErrChan <- err
+            }
+        default:
+            // successfully parsed but we don't know what to do, probably retry parsing
+    }
+}
+```
+
+######As a client
+
+```go    
+// initial connection to underlying conn of readWriter
+s, err := goenc.Dial(readWriter, cipher)
+if err != nil {
+    return err
+}
+
+// send an initial message
+err := s.Send(someMessage)
         is err != nil {
-            // check for closed connection here and break if it is (not shown)
+            return err
+        }
+for {
+       
+        // wait for response
+        msg, err := s.Receive()
+        if err != nil {
             someErrChan <- err
             continue
         }
         
-        msg, err := someMsgParsingFunc(msg)
+        msg, err = someMsgParsingFunc(msg)
         if err != nil {
             // garbled message
             someErrChan <- err
@@ -117,48 +159,6 @@ Note: Retries and connection breaking are not shown here
                 // successfully parsed but we don't know what to do, probably retry parsing
         }
     }
-```
-
-######As a client
-
-```go    
-    // initial connection to underlying conn of readWriter
-    s, err := goenc.Dial(readWriter, cipher)
-    if err != nil {
-        return err
-    }
-    
-    // send an initial message
-    err := s.Send(someMessage)
-            is err != nil {
-                return err
-            }
-    for {
-           
-            // wait for response
-            msg, err := s.Receive()
-            if err != nil {
-                someErrChan <- err
-                continue
-            }
-            
-            msg, err = someMsgParsingFunc(msg)
-            if err != nil {
-                // garbled message
-                someErrChan <- err
-                continue
-            }
-            
-            switch msg.Type {
-                case SomeCoolThing:
-                    err = s.Send(someConstMessage)
-                    if err != nil {
-                        someErrChan <- err
-                    }
-                default:
-                    // successfully parsed but we don't know what to do, probably retry parsing
-            }
-        }
 ```
 
 TODO
