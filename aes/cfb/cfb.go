@@ -1,3 +1,5 @@
+// Package cfb supports basic cfb encryption with NO HMAC
+// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_Feedback_.28CFB.29
 package cfb
 
 import (
