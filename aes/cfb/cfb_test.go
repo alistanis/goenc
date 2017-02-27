@@ -6,6 +6,7 @@ import (
 
 	"bytes"
 
+	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -43,5 +44,41 @@ func TestEncrypt(t *testing.T) {
 
 		data, err = Decrypt(key, data)
 		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
+	})
+}
+
+func TestCipher_Encrypt(t *testing.T) {
+	Convey("We can encrypt and decrypt with the cipher struct", t, func() {
+		c := New()
+		So(c.KeySize(), ShouldEqual, KeySize)
+		k, err := generate.Key()
+		So(err, ShouldBeNil)
+		key := k[:]
+		data, err := c.Encrypt(key, []byte(text))
+		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
+
+		data, err = c.Decrypt(key, data)
+		So(err, ShouldBeNil)
+		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
+	})
+}
+
+func TestErrors(t *testing.T) {
+	Convey("We can get the appropriate errors", t, func() {
+		key, err := generate.RandBytes(30)
+		So(err, ShouldBeNil)
+		_, err = Encrypt(key, []byte{})
+		errText := "crypto/aes: invalid key size 30"
+		So(err.Error(), ShouldEqual, errText)
+		_, err = Decrypt(key, []byte{})
+		So(err.Error(), ShouldEqual, errText)
+
+		k, err := generate.Key()
+		So(err, ShouldBeNil)
+		key = k[:]
+
+		_, err = Decrypt(key, []byte{})
+		So(err, ShouldEqual, encerrors.ErrInvalidMessageLength)
+
 	})
 }

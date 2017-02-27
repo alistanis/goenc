@@ -4,9 +4,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"errors"
 	"io"
 
+	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
 )
 
@@ -41,7 +41,7 @@ func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	}
 
 	if len(ciphertext) < aes.BlockSize {
-		return nil, errors.New("Ciphertext is shorter than aes.BlockSize")
+		return nil, encerrors.ErrInvalidMessageLength
 	}
 
 	// get first 16 bytes from ciphertext
