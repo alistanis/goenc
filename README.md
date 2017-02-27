@@ -66,7 +66,7 @@ if err != nil {
 }
 fmt.Println(plaintext) // super secret message
 ```       
-#####Example Usage of BlockCipher interface
+#####Example Usage of the main Cipher struct and a BlockCipher interface - this will perform key derivation
 
 ```go
 c, err := goenc.NewCipher(goenc.CBC, goenc.InteractiveComplexity)
