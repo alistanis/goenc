@@ -93,6 +93,9 @@ func TestFileIOErrors(t *testing.T) {
 
 		_, err = ReadEncryptedFile(c, []byte{}, "")
 		So(err, ShouldNotBeNil)
+
+		err = EncryptAndSaveWithPerms(c, []byte{}, []byte{}, "", 0644)
+		So(err, ShouldNotBeNil)
 	})
 }
 
