@@ -1,45 +1,75 @@
 package ssh
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
+
 	"io/ioutil"
 
 	"golang.org/x/crypto/ssh"
 )
 
-// SSHKeyPair generates private and public key bytes
-func SSHKeyPair() (privateKeyBytes, publicKeyBytes []byte, err error) {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
+const (
+	// RSA1024 is 1024 bits (should only be used for testing)
+	RSA1024 = 1 << (10 + iota)
+	// RSA2048 is 2048 bits
+	RSA2048
+	// RSA4096 is 4096 bits
+	RSA4096
+)
+
+// LocalKeyPair returns bits formatted for a local ssh key pair (id_rsa, id_rsa.pub)
+func LocalKeyPair(bits int) (private, public []byte, err error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
 		return nil, nil, err
 	}
-	buf := bytes.NewBuffer(privateKeyBytes)
+	buf := bytes.NewBuffer([]byte{})
 	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
-	if err = pem.Encode(buf, privateKeyPEM); err != nil {
+	if err := pem.Encode(buf, privateKeyPEM); err != nil {
 		return nil, nil, err
 	}
-
-	// generate and write public key
 	pub, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	publicKeyBytes = ssh.MarshalAuthorizedKey(pub)
-	return
+	return buf.Bytes(), ssh.MarshalAuthorizedKey(pub), nil
 }
 
-// GenerateAndSaveSSHKeyPair generates a new ssh private key and public key and saves them to the given paths
-func GenerateAndSaveSSHKeyPair(privateKeyPath, pubkeyPath string) error {
-	pr, pub, err := SSHKeyPair()
+// PrivateAndPublicKeyBytes takes a privateKey and returns the private and public key bytes, the public key bytes
+// are in the wire format protocol
+func PrivateAndPublicKeyBytes(bits int) ([]byte, []byte, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
+	if err != nil {
+		return nil, nil, err
+	}
+	buf := bytes.NewBuffer([]byte{})
+	privateKeyPEM := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)}
+	if err := pem.Encode(buf, privateKeyPEM); err != nil {
+		return nil, nil, err
+	}
+
+	pub, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buf.Bytes(), pub.Marshal(), err
+}
+
+// SaveNewKeyPair generates a new key and saves private and public keys to a local path with the given bit
+func SaveNewKeyPair(privPath, pubPath string, bits int) error {
+	priv, pub, err := LocalKeyPair(bits)
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(privateKeyPath, pr, 0600); err != nil {
+
+	err = ioutil.WriteFile(privPath, priv, 0600)
+	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(pubkeyPath, pub, 0644)
+	return ioutil.WriteFile(pubPath, pub, 0644)
 }

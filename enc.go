@@ -30,7 +30,7 @@ import (
 )
 
 /*
-	TODO(cmc): Verify this isn't horrifically insecure and have this reviewed by an expert before publishing
+	TODO(cmc): Verify this isn't horrifically insecure and have this reviewed by a(n) expert(s) before publishing
 */
 
 // BlockCipher represents a cipher that encodes and decodes chunks of data at a time
