@@ -140,3 +140,9 @@ Note: Retries and connection breaking are not shown here
                     // successfully parsed but we don't know what to do, probably retry parsing
             }
         }
+        
+#Special Thanks
+
+A very special thanks to [Kyle Isom](https://github.com/kisom), whose book provided a very good jumping off point for starting this library.
+
+You can find his book here: [Practical Cryptography with Go](https://leanpub.com/gocrypto/)
