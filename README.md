@@ -29,7 +29,7 @@ It also natively performs key derivation, can handle key exchanges, and can prev
     	recvKey  *[32]byte
     }
 
-All packages implement the `BlockCipher` interface with a `Cipher` struct, allowing for flexibility when working with the `BlockCipher` interface.
+All internal packages implement the `BlockCipher` interface with a `Cipher` struct, allowing for flexibility when working with the `BlockCipher` interface.
 
 Each package can also be used directly, as the `Cipher` struct in each simply wraps public functions.
 
