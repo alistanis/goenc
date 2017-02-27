@@ -10,7 +10,7 @@ const (
 	KeySize = 32
 	// NonceSize is the default NonceSize
 	NonceSize = 24
-	// GCMNonce is the default gcmnonce size
+	// GCMNonceSize is the default gcmnonce size
 	GCMNonceSize = 12
 )
 
