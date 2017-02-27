@@ -469,9 +469,9 @@ const (
 	Complexity17
 	// Complexity18 is 2^18
 	Complexity18
-	// Complexity19 is 2^18
+	// Complexity19 is 2^19
 	Complexity19
-	// AggressiveComplexity is 2^19 (don't use this unless you have relatively strong CPU power
+	// AggressiveComplexity is 2^20 (don't use this unless you have incredibly strong CPU power
 	AggressiveComplexity
 )
 
