@@ -1,6 +1,7 @@
 # goenc
 [![Go Report Card](https://goreportcard.com/badge/github.com/alistanis/goenc)](https://goreportcard.com/report/github.com/alistanis/goenc)
 [![GoDoc](https://godoc.org/github.com/alistanis/goenc?status.svg)](https://godoc.org/github.com/alistanis/goenc)
+[![codecov](https://codecov.io/gh/alistanis/goenc/branch/master/graph/badge.svg)](https://codecov.io/gh/alistanis/goenc)
 
 Encryption and Decryption functions for Go made easy. Encryption should be as simple as calling Encrypt(key, data) and Decrypt(key, data).
 
