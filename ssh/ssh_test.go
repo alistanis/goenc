@@ -62,5 +62,8 @@ func TestErrors(t *testing.T) {
 
 		err = SaveNewKeyPair("", "", 1)
 		So(err, ShouldNotBeNil)
+
+		err = SaveNewKeyPair("", "", RSA1024)
+		So(err, ShouldNotBeNil)
 	})
 }
