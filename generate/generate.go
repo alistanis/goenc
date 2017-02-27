@@ -6,7 +6,9 @@ import (
 )
 
 const (
-	KeySize   = 32
+	// KeySize is the default key size for most types of encryption
+	KeySize = 32
+	// NonceSize is the default NonceSize
 	NonceSize = 24
 )
 
@@ -28,6 +30,7 @@ func Nonce() (*[NonceSize]byte, error) {
 	return nonce, nil
 }
 
+// RandBytes returns a slice of random bytes of the size given
 func RandBytes(size int) ([]byte, error) {
 	buf := make([]byte, size)
 	_, err := io.ReadFull(rand.Reader, buf)

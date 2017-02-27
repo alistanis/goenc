@@ -16,10 +16,14 @@ import (
 const (
 	// NonceSize to use for nonces
 	NonceSize = aes.BlockSize
-	MACSize   = 32                  // Output size of HMAC-SHA-256
-	CKeySize  = 32                  // Cipher key size - AES-256
-	MKeySize  = 32                  // HMAC key size - HMAC-SHA-256
-	KeySize   = CKeySize + MKeySize // 64 bytes
+	// MACSize is the output size of HMAC-SHA-256
+	MACSize = 32
+	// CKeySize - Cipher key size - AES-256
+	CKeySize = 32
+	// MKeySize - HMAC key size - HMAC-SHA-256
+	MKeySize = 32
+	// KeySize is the key size for CBC
+	KeySize = CKeySize + MKeySize
 )
 
 // pad pads input to match the correct size
