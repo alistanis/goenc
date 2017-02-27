@@ -1,4 +1,4 @@
-// package goenc contains functions for working with encryption
+// Package goenc contains functions for working with encryption
 package goenc
 
 // work is derived from many sources:

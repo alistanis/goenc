@@ -84,12 +84,12 @@ func TestCipher_Encrypt(t *testing.T) {
 	})
 }
 
-var testError = errors.New("test error")
+var errTestError = errors.New("test error")
 
 type R struct{}
 
 func (r *R) KeyForID(u uint32) ([]byte, error) {
-	return nil, testError
+	return nil, errTestError
 }
 
 type T struct{}
@@ -112,13 +112,10 @@ func TestErrors(t *testing.T) {
 
 		_, err = DecryptWithID([]byte{}, nil)
 
-		k2, err := generate.Key()
-		So(err, ShouldBeNil)
-		key = k2[:]
 		data, err := generate.RandBytes(NonceSize + 5)
 		So(err, ShouldBeNil)
 		_, err = DecryptWithID(data, &R{})
-		So(err, ShouldEqual, testError)
+		So(err, ShouldEqual, errTestError)
 
 		_, err = DecryptWithID(data, &T{})
 		So(err.Error(), ShouldEqual, "crypto/aes: invalid key size 0")
