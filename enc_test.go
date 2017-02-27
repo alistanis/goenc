@@ -16,52 +16,6 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-func TestFileIO(t *testing.T) {
-
-	Convey("We can successfully perform file writing and reading using the block cipher interface functions", t, func() {
-		bc, err := NewCipher(Mock, testComplexity)
-		So(err, ShouldBeNil)
-		d, err := ioutil.TempDir("/tmp", "")
-		So(err, ShouldBeNil)
-		defer os.RemoveAll(d)
-		tf, err := ioutil.TempFile(d, "")
-		So(err, ShouldBeNil)
-
-		data := []byte("test data we'd like to 'encrypt' and save to file")
-		key := []byte("test key which is meaningless")
-
-		err = EncryptAndSave(bc, key, data, tf.Name())
-		So(err, ShouldBeNil)
-
-		err = tf.Close()
-		So(err, ShouldBeNil)
-
-		nd, err := ReadEncryptedFile(bc, key, tf.Name())
-		So(err, ShouldBeNil)
-		So(bytes.Equal(data, nd), ShouldBeTrue)
-	})
-
-}
-
-var (
-	alicePub, alicePriv *[32]byte
-	bobPub, bobPriv     *[32]byte
-)
-
-func TestGenerateKeys(t *testing.T) {
-	var err error
-
-	alicePub, alicePriv, err = box.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-
-	bobPub, bobPriv, err = box.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-}
-
 var (
 	testMessage = []byte("do not go gentle into that good night")
 	testSecured []byte
@@ -100,6 +54,65 @@ func init() {
 		os.Exit(-1)
 	}
 	ciphers = []*Cipher{cbc, cfb, ctr, gcm, nacl}
+}
+
+func TestFileIO(t *testing.T) {
+
+	Convey("We can successfully perform file writing and reading using the block cipher interface functions", t, func() {
+		bc, err := NewCipher(Mock, testComplexity)
+		So(err, ShouldBeNil)
+		d, err := ioutil.TempDir("/tmp", "")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(d)
+		tf, err := ioutil.TempFile(d, "")
+		So(err, ShouldBeNil)
+
+		data := []byte("test data we'd like to 'encrypt' and save to file")
+		key := []byte("test key which is meaningless")
+
+		err = EncryptAndSave(bc, key, data, tf.Name())
+		So(err, ShouldBeNil)
+
+		err = tf.Close()
+		So(err, ShouldBeNil)
+
+		nd, err := ReadEncryptedFile(bc, key, tf.Name())
+		So(err, ShouldBeNil)
+		So(bytes.Equal(data, nd), ShouldBeTrue)
+	})
+
+}
+
+func TestFileIOErrors(t *testing.T) {
+	Convey("We can get errors on file io when we should", t, func() {
+		c, err := NewCipher(GCM, testComplexity)
+		So(err, ShouldBeNil)
+
+		err = EncryptAndSave(c, []byte{}, []byte{}, "")
+		So(err, ShouldNotBeNil)
+
+		_, err = ReadEncryptedFile(c, []byte{}, "")
+		So(err, ShouldNotBeNil)
+	})
+}
+
+var (
+	alicePub, alicePriv *[32]byte
+	bobPub, bobPriv     *[32]byte
+)
+
+func TestGenerateKeys(t *testing.T) {
+	var err error
+
+	alicePub, alicePriv, err = box.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+
+	bobPub, bobPriv, err = box.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 }
 
 func TestSessionSetup(t *testing.T) {
@@ -248,5 +261,7 @@ func TestErrors(t *testing.T) {
 		_, err = s.Decrypt(data)
 		So(err, ShouldNotBeNil)
 
+		_, err = DeriveKey([]byte{}, []byte{}, 0, 1)
+		So(err, ShouldNotBeNil)
 	})
 }
