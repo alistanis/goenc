@@ -179,7 +179,11 @@ TODO
 2. [ ] More complete documentation with examples
     *  [ ] Document full examples of package functions and the small differences they have
     *  [ ] Document SenderID functions in the GCM package and give a real world example
-3. [ ] Implement SenderID functions in packages other than GCM    
+3. [ ] Implement SenderID functions in packages other than GCM
+4. [ ] Give user level control over when/how key derivation takes place
+    *  The way it works now on a session is that the key will be derived for every message - this is slow, but potentially more secure
+       * If one algo has a flaw in which a prior key is discovered, only that message could be read
+       * That should still be left up to the user
 ```        
         
 #Special Thanks
