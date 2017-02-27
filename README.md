@@ -148,6 +148,13 @@ Note: Retries and connection breaking are not shown here
                     // successfully parsed but we don't know what to do, probably retry parsing
             }
         }
+
+TODO
+---
+```
+1. [ ] Get project reviewed (if you are a security expert interested in reviewing this, please contact me and let me know if you find anything)
+2. [ ] More complete documentation with examples
+```        
         
 #Special Thanks
 
