@@ -40,3 +40,13 @@ func TestRandBytes(t *testing.T) {
 		So(bytes.Equal(b, b2), ShouldBeFalse)
 	})
 }
+
+func TestRandString(t *testing.T) {
+	Convey("We can get a random string", t, func() {
+		s, err := RandString(3)
+		So(err, ShouldBeNil)
+		s2, err := RandString(3)
+		So(err, ShouldBeNil)
+		So(s, ShouldNotEqual, s2)
+	})
+}

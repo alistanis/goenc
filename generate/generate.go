@@ -36,3 +36,9 @@ func RandBytes(size int) ([]byte, error) {
 	_, err := io.ReadFull(rand.Reader, buf)
 	return buf, err
 }
+
+// RandString returns a random string with the given length
+func RandString(length int) (string, error) {
+	b, err := RandBytes(length)
+	return string(b), err
+}
