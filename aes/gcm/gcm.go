@@ -12,8 +12,8 @@ import (
 	"github.com/alistanis/goenc/generate"
 )
 
-// NonceSize // generic NonceSize
-const NonceSize = 12
+// NonceSize // generic NonceSize from RFC5084
+const NonceSize = 12 // https://tools.ietf.org/html/rfc5084
 
 // KeySize // generic KeySize
 const KeySize = generate.KeySize
