@@ -9,16 +9,19 @@ The API is built around the `BlockCipher` interface and the `Session` struct.
 
 `BlockCipher` can be used to encrypt simple messages or small files. 
 
+```go
     // BlockCipher represents a cipher that encodes and decodes chunks of data at a time
     type BlockCipher interface {
     	Encrypt(key, plaintext []byte) ([]byte, error)
     	Decrypt(key, ciphertext []byte) ([]byte, error)
     	KeySize() int
     }
+```
 
 `Session` can be used to perform key exchanges and send secure messages over a "channel" (`io.ReadWriter`)
 It also natively performs key derivation, can handle key exchanges, and can prevent replay attaacks.
 
+```go
     // Session represents a session that can be used to pass messages over a secure channel
     type Session struct {
     	Cipher   *Cipher
@@ -28,6 +31,7 @@ It also natively performs key derivation, can handle key exchanges, and can prev
     	sendKey  *[32]byte
     	recvKey  *[32]byte
     }
+```
 
 All internal packages implement the `BlockCipher` interface with a `Cipher` struct, allowing for flexibility when working with the `BlockCipher` interface.
 
