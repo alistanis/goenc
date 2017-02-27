@@ -5,6 +5,8 @@
 
 Encryption and Decryption functions for Go made easy. Encryption should be as simple as calling Encrypt(key, data) and Decrypt(key, data).
 
+###Note: I am in the process of trying to get this reviewed - use at your own risk
+
 # API
 
 The API is built around the `BlockCipher` interface and the `Session` struct.
