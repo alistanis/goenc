@@ -163,6 +163,10 @@ for {
     }
 ```
 
+#SSH Package
+
+The ssh package contains convenience functions for generating and parsing ssh keys. They are a wrapper around the /x/crypto package's ssh package.
+
 TODO
 ---
 ```

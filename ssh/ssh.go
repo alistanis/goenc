@@ -23,7 +23,7 @@ const (
 	RSA4096
 )
 
-// LocalKeyPair returns bits formatted for a local ssh key pair (id_rsa, id_rsa.pub)
+// LocalKeyPair returns bits formatted for a local ssh key pair (id_rsa, id_rsa.pub - AuthorizedKey format)
 func LocalKeyPair(bits int) (private, public []byte, err error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
 	if err != nil {
@@ -73,4 +73,13 @@ func SaveNewKeyPair(privPath, pubPath string, bits int) error {
 		return err
 	}
 	return ioutil.WriteFile(pubPath, pub, 0644)
+}
+
+// ReadLocalPublicKey reads a local path for a public key stored in the AuthorizedKeys format
+func ReadLocalPublicKey(pubPath string) (out ssh.PublicKey, comment string, options []string, rest []byte, err error) {
+	data, err := ioutil.ReadFile(pubPath)
+	if err != nil {
+		return nil, "", nil, nil, err
+	}
+	return ssh.ParseAuthorizedKey(data)
 }

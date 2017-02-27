@@ -48,6 +48,9 @@ func TestSaveNewKeyPair(t *testing.T) {
 		err = SaveNewKeyPair(t1.Name(), t2.Name(), RSA1024)
 		So(err, ShouldBeNil)
 
+		_, _, _, _, err = ReadLocalPublicKey(t2.Name())
+		So(err, ShouldBeNil)
+
 		err = os.RemoveAll(dir)
 		So(err, ShouldBeNil)
 	})
@@ -64,6 +67,9 @@ func TestErrors(t *testing.T) {
 		So(err, ShouldNotBeNil)
 
 		err = SaveNewKeyPair("", "", RSA1024)
+		So(err, ShouldNotBeNil)
+
+		_, _, _, _, err = ReadLocalPublicKey("")
 		So(err, ShouldNotBeNil)
 	})
 }
