@@ -45,7 +45,7 @@ func TestEncryptWithID(t *testing.T) {
 		keyFunc := func(uint32) ([]byte, error) {
 			return key, nil
 		}
-		h := NewHelper(keyFunc)
+		h := NewGCMHelper(keyFunc)
 		data, err := EncryptWithID(key, []byte(text), id)
 		So(err, ShouldBeNil)
 

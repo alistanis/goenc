@@ -10,23 +10,29 @@ import (
 	"github.com/alistanis/goenc/generate"
 )
 
+// KeySize for CFB uses the generic key size
 const KeySize = generate.KeySize
 
+// Cipher to use for implementing the BlockCipher interface
 type Cipher struct {
 }
 
+// New returns a new cfb cipher
 func New() *Cipher {
 	return &Cipher{}
 }
 
+// Encrypt implements the BlockCipher interface
 func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
 	return Encrypt(key, plaintext)
 }
 
+// Decrypt implements the BlockCipher interface
 func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return Decrypt(key, ciphertext)
 }
 
+// KeySize implements the BlockCipher interface
 func (c *Cipher) KeySize() int {
 	return KeySize
 }

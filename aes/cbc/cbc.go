@@ -14,13 +14,15 @@ import (
 )
 
 const (
+	// NonceSize to use for nonces
 	NonceSize = aes.BlockSize
-	MACSize   = 32 // Output size of HMAC-SHA-256
-	CKeySize  = 32 // Cipher key size - AES-256
-	MKeySize  = 32 // HMAC key size - HMAC-SHA-256
-	KeySize   = CKeySize + MKeySize
+	MACSize   = 32                  // Output size of HMAC-SHA-256
+	CKeySize  = 32                  // Cipher key size - AES-256
+	MKeySize  = 32                  // HMAC key size - HMAC-SHA-256
+	KeySize   = CKeySize + MKeySize // 64 bytes
 )
 
+// pad pads input to match the correct size
 func pad(in []byte) []byte {
 	padding := 16 - (len(in) % 16)
 	for i := 0; i < padding; i++ {
@@ -29,6 +31,7 @@ func pad(in []byte) []byte {
 	return in
 }
 
+// unpad removes unecessary bytes that were added during initial padding
 func unpad(in []byte) []byte {
 	if len(in) == 0 {
 		return nil
@@ -49,30 +52,37 @@ func unpad(in []byte) []byte {
 	return in[:len(in)-int(padding)]
 }
 
+// Cipher implements the BlockCipher interface
 type Cipher struct{}
 
+// Encrypt implements the BlockCipher interface
 func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
 	return Encrypt(key, plaintext)
 }
 
+// Decrypt implements the BlockCipher interface
 func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return Decrypt(key, ciphertext)
 }
 
+// KeySize returns CBC KeySize and implements the BlockCipher interface
 func (c *Cipher) KeySize() int {
 	return KeySize
 }
 
+// New returns a new cbc cipher
 func New() *Cipher {
 	return &Cipher{}
 }
 
+// Key returns a random key as a pointer to an array of bytes specified by KeySize
 func Key() (*[KeySize]byte, error) {
 	key := new([KeySize]byte)
 	_, err := io.ReadFull(rand.Reader, key[:])
 	return key, err
 }
 
+// Encrypt encrypts plaintext using the given key with CBC encryption
 func Encrypt(key, plaintext []byte) ([]byte, error) {
 	if len(key) != KeySize {
 		return nil, encerrors.ErrInvalidKeyLength
@@ -99,6 +109,7 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 	return ct, nil
 }
 
+// Decrypt decrypts ciphertext using the given key
 func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	if len(key) != KeySize {
 		return nil, encerrors.ErrInvalidKeyLength

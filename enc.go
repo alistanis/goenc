@@ -70,16 +70,19 @@ func ReadEncryptedFile(cipher BlockCipher, key []byte, path string) ([]byte, err
 // CipherKind represents what kind of cipher to use
 type CipherKind int
 
+// CipherKind constants
 const (
-	GCM CipherKind = iota
-	NaCL
+	CBC CipherKind = iota
 	CFB
-	CBC
 	CTR
+	GCM
+	NaCL
+
 	Mock
 )
 
 const (
+	// SaltSize sets a generic salt size
 	SaltSize = 64
 )
 

@@ -14,38 +14,46 @@ import (
 )
 
 const (
+	// NonceSize to use for nonces
 	NonceSize = aes.BlockSize
-	MACSize   = 32 // Output size of HMAC-SHA-256
-	CKeySize  = 32 // Cipher key size - AES-256
-	MKeySize  = 32 // HMAC key size - HMAC-SHA-256
-	KeySize   = CKeySize + MKeySize
+	MACSize   = 32 // MACSize is the output size of HMAC-SHA-256
+	CKeySize  = 32 // CKeySize - Cipher key size - AES-256
+	MKeySize  = 32 // MKeySize - HMAC key size - HMAC-SHA-256
+	KeySize   = CKeySize + MKeySize // KeySize to use for keys, 64 bytes
 )
 
+// Cipher to implement the BlockCipher interface
 type Cipher struct {
 }
 
+// New returns a new ctr cipher
 func New() *Cipher {
 	return &Cipher{}
 }
 
+// Encrypt implements the BlockCipher interface
 func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
 	return Encrypt(key, plaintext)
 }
 
+// Decrypt implements the BlockCipher interface
 func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return Decrypt(key, ciphertext)
 }
 
+// KeySize implements the BlockCipher interface
 func (c *Cipher) KeySize() int {
 	return KeySize
 }
 
+// Key returns a pointer to an array of bytes with the given KeySize
 func Key() (*[KeySize]byte, error) {
 	key := new([KeySize]byte)
 	_, err := io.ReadFull(rand.Reader, key[:])
 	return key, err
 }
 
+// Encrypt encrypts plaintext using the given key with CTR encryption
 func Encrypt(key, plaintext []byte) ([]byte, error) {
 	if len(key) != KeySize {
 		return nil, encerrors.ErrInvalidKeyLength
@@ -71,6 +79,7 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 	return ct, nil
 }
 
+// Decrypt decrypts ciphertext using the given key
 func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	if len(key) != KeySize {
 		return nil, encerrors.ErrInvalidKeyLength

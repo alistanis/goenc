@@ -18,19 +18,22 @@ const (
 	nonceSize = 24
 )
 
-// The Cipher, which will be NaCL
+// Cipher to implmement the BlockCipher interface
 type Cipher struct {
 	Pad []byte
 }
 
+// Encrypt implements the BlockCipher interface
 func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
 	return Encrypt(c.Pad, key, plaintext)
 }
 
+// Decrypt implements the BlockCipher interface
 func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return Decrypt(c.Pad, key, ciphertext)
 }
 
+// KeySize returns the NaCL keysize
 func (c *Cipher) KeySize() int {
 	return keySize
 }

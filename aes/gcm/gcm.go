@@ -12,21 +12,26 @@ import (
 const NonceSize = generate.NonceSize
 const KeySize = generate.KeySize
 
+// Cipher to implement the BlockCipher interface
 type Cipher struct {
 }
 
+// New returns a new GCM cipher
 func New() *Cipher {
 	return &Cipher{}
 }
 
+// Encrypt implements the BlockCipher interface
 func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
 	return Encrypt(key, plaintext)
 }
 
+// Decrypt implements the BlockCipher interface
 func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return Decrypt(key, ciphertext)
 }
 
+// KeySize returns the GCM key size
 func (c *Cipher) KeySize() int {
 	return KeySize
 }
@@ -55,12 +60,13 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 	return out, nil
 }
 
-// EncryptString
+// EncryptString is a convenience function for working with strings
 func EncryptString(key, plaintext string) (string, error) {
 	data, err := Encrypt([]byte(key), []byte(plaintext))
 	return string(data), err
 }
 
+// Decrypt decrypts data using AES-GCM
 func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	// Create the AES cipher
 	block, err := aes.NewCipher(key)
@@ -76,16 +82,20 @@ func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	return gcm.Open(nil, nonce[:], ciphertext[NonceSize:], nil)
 }
 
+// DecryptString is a convenience function for working with strings
 func DecryptString(key, ciphertext string) (string, error) {
 	data, err := Decrypt([]byte(key), []byte(ciphertext))
 	return string(data), err
 }
 
+//---------------------------------------------
+// For use with more complex encryption schemes
+//---------------------------------------------
+
 // EncryptWithID secures a message and prepends a 4-byte sender ID
 // to the message. The end bit is tricky, because gcm.Seal modifies buf, and this is necessary
 func EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
 	buf := make([]byte, 4)
-
 	binary.BigEndian.PutUint32(buf, sender)
 
 	c, err := aes.NewCipher(key)
@@ -161,34 +171,39 @@ type KeyRetriever interface {
 	KeyForID(uint32) ([]byte, error)
 }
 
-// Helper is designed to make it easy to call EncryptWithID and DecryptWithID by assigning the KeyForIDFunc
+// GCMHelper is designed to make it easy to call EncryptWithID and DecryptWithID by assigning the KeyForIDFunc
 // it implements KeyRetriever and provides convenience functions
 // It also serves as an example for how to use KeyRetriever
-type Helper struct {
+type GCMHelper struct {
 	KeyForIDFunc func(uint32) ([]byte, error)
 }
 
-// NewHelper returns a new helper
-func NewHelper(f func(uint32) ([]byte, error)) *Helper {
-	return &Helper{f}
+// NewGCMHelper returns a new helper
+func NewGCMHelper(f func(uint32) ([]byte, error)) *GCMHelper {
+	return &GCMHelper{f}
 }
 
-func (h *Helper) KeyForID(u uint32) ([]byte, error) {
+// KeyForID implements the KeyRetriever interface, it should be used to get a Key for the given ID
+func (h *GCMHelper) KeyForID(u uint32) ([]byte, error) {
 	return h.KeyForIDFunc(u)
 }
 
-func (h *Helper) EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
+// EncryptWithID is a convenience function
+func (h *GCMHelper) EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
 	return EncryptWithID(key, message, sender)
 }
 
-func (h *Helper) DecryptWithID(message []byte) ([]byte, error) {
+// DecryptWithID is a convenience function
+func (h *GCMHelper) DecryptWithID(message []byte) ([]byte, error) {
 	return DecryptWithID(message, h)
 }
 
-func (h *Helper) EncryptStringWithID(key, message string, sender uint32) (string, error) {
+// EncryptStringWithID is a convenience function
+func (h *GCMHelper) EncryptStringWithID(key, message string, sender uint32) (string, error) {
 	return EncryptStringWithID(key, message, sender)
 }
 
-func (h *Helper) DecryptStringWithID(message string) (string, error) {
+// DecryptStringWithID is a convenience function
+func (h *GCMHelper) DecryptStringWithID(message string) (string, error) {
 	return DecryptStringWithID(message, h)
 }
