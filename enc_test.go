@@ -9,6 +9,9 @@ import (
 
 	"fmt"
 
+	"path/filepath"
+	"runtime"
+
 	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
 	"github.com/kisom/testio"
@@ -59,9 +62,15 @@ func init() {
 func TestFileIO(t *testing.T) {
 
 	Convey("We can successfully perform file writing and reading using the block cipher interface functions", t, func() {
+		var tempDir = "/tmp"
+		if runtime.GOOS == "windows" {
+			userProfile := os.Getenv("USERPROFILE")
+			tempDir = filepath.Join(userProfile, "AppData", "Local", "Temp")
+		}
+
 		bc, err := NewCipher(Mock, testComplexity)
 		So(err, ShouldBeNil)
-		d, err := ioutil.TempDir("/tmp", "")
+		d, err := ioutil.TempDir(tempDir, "")
 		So(err, ShouldBeNil)
 		defer os.RemoveAll(d)
 		tf, err := ioutil.TempFile(d, "")
