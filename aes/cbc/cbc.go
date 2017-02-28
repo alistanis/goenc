@@ -106,8 +106,8 @@ func Encrypt(key, plaintext []byte) ([]byte, error) {
 	// NewCipher only returns an error with an invalid key size,
 	// but the key size was checked at the beginning of the function.
 	c, _ := aes.NewCipher(key[:CKeySize])
-	ctr := cipher.NewCBCEncrypter(c, iv)
-	ctr.CryptBlocks(ct, pmessage)
+	cbc := cipher.NewCBCEncrypter(c, iv)
+	cbc.CryptBlocks(ct, pmessage)
 
 	h := hmac.New(sha256.New, key[CKeySize:])
 	ct = append(iv, ct...)
@@ -149,8 +149,8 @@ func Decrypt(key, ciphertext []byte) ([]byte, error) {
 	// NewCipher only returns an error with an invalid key size,
 	// but the key size was checked at the beginning of the function.
 	c, _ := aes.NewCipher(key[:CKeySize])
-	ctr := cipher.NewCBCDecrypter(c, ciphertext[:NonceSize])
-	ctr.CryptBlocks(out, ciphertext[NonceSize:])
+	cbc := cipher.NewCBCDecrypter(c, ciphertext[:NonceSize])
+	cbc.CryptBlocks(out, ciphertext[NonceSize:])
 
 	pt := unpad(out)
 	if pt == nil {
