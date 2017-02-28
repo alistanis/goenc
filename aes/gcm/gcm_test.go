@@ -47,24 +47,31 @@ func TestEncryptWithID(t *testing.T) {
 			return key, nil
 		}
 		h := NewGCMHelper(keyFunc)
-		data, err := EncryptWithID(key, []byte(text), id)
+		data, err := EncryptWithID(key, []byte(text), id, NonceSize)
 		So(err, ShouldBeNil)
 
 		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
 
-		data, err = DecryptWithID(data, h)
+		data, err = DecryptWithID(data, h, NonceSize)
 		So(err, ShouldBeNil)
 		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
 		s := "You can't read this"
-		s1, err := EncryptStringWithID(string(key), s, 47)
+		s1, err := EncryptStringWithID(string(key), s, 47, NonceSize)
 		So(err, ShouldBeNil)
 		So(s, ShouldNotEqual, s1)
 
-		s1, err = DecryptStringWithID(s1, h)
+		s1, err = DecryptStringWithID(s1, h, NonceSize)
 		So(err, ShouldBeNil)
 		So(s1, ShouldEqual, s)
-
 	})
+}
+
+type kr struct {
+	f func() ([]byte, error)
+}
+
+func (k *kr) KeyForID(u uint32) ([]byte, error) {
+	return k.f()
 }
 
 func TestCipher_Encrypt(t *testing.T) {
@@ -79,6 +86,14 @@ func TestCipher_Encrypt(t *testing.T) {
 		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
 
 		data, err = c.Decrypt(key, data)
+		So(err, ShouldBeNil)
+		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
+
+		data, err = c.EncryptWithID(key, []byte(text), 1)
+		So(err, ShouldBeNil)
+		So(bytes.Equal([]byte(text), data), ShouldBeFalse)
+		kr := &kr{f: func() ([]byte, error) { return key, nil }}
+		data, err = c.DecryptWithID(data, kr)
 		So(err, ShouldBeNil)
 		So(bytes.Equal([]byte(text), data), ShouldBeTrue)
 	})
@@ -110,17 +125,17 @@ func TestErrors(t *testing.T) {
 		_, err = Decrypt(key, []byte{}, NonceSize)
 		So(err, ShouldNotBeNil)
 
-		_, err = EncryptWithID(key, []byte{}, 1)
+		_, err = EncryptWithID(key, []byte{}, 1, NonceSize)
 		So(err.Error(), ShouldEqual, errText)
 
-		_, err = DecryptWithID([]byte{}, nil)
+		_, err = DecryptWithID([]byte{}, nil, NonceSize)
 		So(err, ShouldNotBeNil)
 		data, err := generate.RandBytes(NonceSize + 5)
 		So(err, ShouldBeNil)
-		_, err = DecryptWithID(data, &R{})
+		_, err = DecryptWithID(data, &R{}, NonceSize)
 		So(err, ShouldEqual, errTestError)
 
-		_, err = DecryptWithID(data, &T{})
+		_, err = DecryptWithID(data, &T{}, NonceSize)
 		So(err.Error(), ShouldEqual, "crypto/aes: invalid key size 0")
 
 	})

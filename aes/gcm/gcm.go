@@ -43,6 +43,16 @@ func (c *Cipher) KeySize() int {
 	return KeySize
 }
 
+// EncryptWithID calls the package EncryptWithID and passes c.NonceSize
+func (c *Cipher)EncryptWithID(key, plaintext []byte, sender uint32) ([]byte, error) {
+	return EncryptWithID(key, plaintext, sender, c.NonceSize)
+}
+
+// DecryptWithID calls the package DecryptWithID and passes c.NonceSize
+func (c *Cipher) DecryptWithID(message []byte, k KeyRetriever) ([]byte, error) {
+	return DecryptWithID(message, k, c.NonceSize)
+}
+
 // Encrypt secures a message using AES-GCM.
 func Encrypt(key, plaintext []byte, nonceSize int) ([]byte, error) {
 	c, err := aes.NewCipher(key)
@@ -101,7 +111,7 @@ func DecryptString(key, ciphertext string, nonceSize int) (string, error) {
 
 // EncryptWithID secures a message and prepends a 4-byte sender ID
 // to the message. The end bit is tricky, because gcm.Seal modifies buf, and this is necessary
-func EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
+func EncryptWithID(key, message []byte, sender uint32, nonceSize int) ([]byte, error) {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, sender)
 
@@ -110,7 +120,7 @@ func EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
 		return nil, err
 	}
 
-	gcm, err := cipher.NewGCMWithNonceSize(c, NonceSize)
+	gcm, err := cipher.NewGCMWithNonceSize(c, nonceSize)
 	if err != nil {
 		return nil, err
 	}
@@ -125,16 +135,16 @@ func EncryptWithID(key, message []byte, sender uint32) ([]byte, error) {
 }
 
 // EncryptStringWithID is a helper function to work with strings instead of bytes
-func EncryptStringWithID(key, message string, sender uint32) (string, error) {
-	data, err := EncryptWithID([]byte(key), []byte(message), sender)
+func EncryptStringWithID(key, message string, sender uint32, nonceSize int) (string, error) {
+	data, err := EncryptWithID([]byte(key), []byte(message), sender, nonceSize)
 	return string(data), err
 }
 
 // DecryptWithID takes an encrypted message and a KeyForID function (to get a key from a cache or a database perhaps)
 // It checks the first 4 bytes for prepended header data, in this case, a sender ID
-func DecryptWithID(message []byte, k KeyRetriever) ([]byte, error) {
+func DecryptWithID(message []byte, k KeyRetriever, nonceSize int) ([]byte, error) {
 
-	if len(message) <= NonceSize+4 {
+	if len(message) <= nonceSize+4 {
 		return nil, encerrors.ErrInvalidMessageLength
 	}
 
@@ -148,15 +158,15 @@ func DecryptWithID(message []byte, k KeyRetriever) ([]byte, error) {
 		return nil, err
 	}
 
-	gcm, err := cipher.NewGCMWithNonceSize(c, NonceSize)
+	gcm, err := cipher.NewGCMWithNonceSize(c, nonceSize)
 	if err != nil {
 		return nil, err
 	}
 
-	nonce := make([]byte, NonceSize)
+	nonce := make([]byte, nonceSize)
 	copy(nonce, message[4:])
 
-	ciphertext := message[4+NonceSize:]
+	ciphertext := message[4+nonceSize:]
 
 	// Decrypt the message, using the sender ID as the additional
 	// data requiring authentication.
@@ -169,8 +179,8 @@ func DecryptWithID(message []byte, k KeyRetriever) ([]byte, error) {
 }
 
 // DecryptStringWithID is a helper function to work with strings instead of bytes
-func DecryptStringWithID(message string, k KeyRetriever) (string, error) {
-	data, err := DecryptWithID([]byte(message), k)
+func DecryptStringWithID(message string, k KeyRetriever, nonceSize int) (string, error) {
+	data, err := DecryptWithID([]byte(message), k, nonceSize)
 	return string(data), err
 }
 

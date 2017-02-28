@@ -64,7 +64,6 @@ func Decrypt(key, ciphertext []byte) ([]byte, error) {
 
 	// SimpleDecrypt bytes from ciphertext
 	stream.XORKeyStream(ciphertext, ciphertext)
-
 	return ciphertext, nil
 }
 
