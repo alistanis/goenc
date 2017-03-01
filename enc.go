@@ -122,16 +122,6 @@ func NewCipher(kind CipherKind, derivedKeyN int, args ...[]byte) (*Cipher, error
 	return c, nil
 }
 
-// Encrypt takes a key, plaintext, and derives a key based on that password,
-// then encrypting that data with the underlying block cipher
-func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
-	out, err := c.BlockCipher.Encrypt(key, plaintext)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // EncryptWithPassword takes a password, plaintext, and derives a key based on that password,
 // then encrypting that data with the underlying block cipher
 func (c *Cipher) EncryptWithPassword(password, plaintext []byte) ([]byte, error) {
@@ -157,16 +147,6 @@ func (c *Cipher) EncryptWithPassword(password, plaintext []byte) ([]byte, error)
 
 // Overhead is the amount of Overhead contained in the ciphertext
 const Overhead = SaltSize + secretbox.Overhead + generate.NonceSize
-
-// Decrypt takes a password and ciphertext, derives a key, and attempts to decrypt that data
-func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
-	out, err := c.BlockCipher.Decrypt(key, ciphertext)
-	if err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
 
 // Decrypt takes a password and ciphertext, derives a key, and attempts to decrypt that data
 func (c *Cipher) DecryptWithPassword(password, ciphertext []byte) ([]byte, error) {
