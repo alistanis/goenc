@@ -91,6 +91,7 @@ const (
 type Cipher struct {
 	BlockCipher
 	DerivedKeyN int
+	Salt        []byte
 }
 
 // NewCipher returns a new Cipher containing a BlockCipher interface based on the CipherKind
@@ -121,9 +122,19 @@ func NewCipher(kind CipherKind, derivedKeyN int, args ...[]byte) (*Cipher, error
 	return c, nil
 }
 
-// Encrypt takes a password, plaintext, and derives a key based on that password,
+// Encrypt takes a key, plaintext, and derives a key based on that password,
 // then encrypting that data with the underlying block cipher
-func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
+func (c *Cipher) Encrypt(key, plaintext []byte) ([]byte, error) {
+	out, err := c.BlockCipher.Encrypt(key, plaintext)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// EncryptWithPassword takes a password, plaintext, and derives a key based on that password,
+// then encrypting that data with the underlying block cipher
+func (c *Cipher) EncryptWithPassword(password, plaintext []byte) ([]byte, error) {
 	salt, err := generate.RandBytes(SaltSize)
 	if err != nil {
 		return nil, err
@@ -148,7 +159,17 @@ func (c *Cipher) Encrypt(password, plaintext []byte) ([]byte, error) {
 const Overhead = SaltSize + secretbox.Overhead + generate.NonceSize
 
 // Decrypt takes a password and ciphertext, derives a key, and attempts to decrypt that data
-func (c *Cipher) Decrypt(password, ciphertext []byte) ([]byte, error) {
+func (c *Cipher) Decrypt(key, ciphertext []byte) ([]byte, error) {
+	out, err := c.BlockCipher.Decrypt(key, ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// Decrypt takes a password and ciphertext, derives a key, and attempts to decrypt that data
+func (c *Cipher) DecryptWithPassword(password, ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < Overhead {
 		return nil, encerrors.ErrInvalidMessageLength
 	}
@@ -222,10 +243,12 @@ type Channel io.ReadWriter
 type Session struct {
 	Cipher *Cipher
 	Channel
-	lastSent uint32
-	lastRecv uint32
-	sendKey  *[32]byte
-	recvKey  *[32]byte
+	lastSent       uint32
+	lastRecv       uint32
+	sendKey        *[32]byte
+	recvKey        *[32]byte
+	derivedSendKey []byte
+	derivedRecvKey []byte
 }
 
 // LastSent returns the last sent message id
@@ -246,12 +269,12 @@ func (s *Session) Encrypt(message []byte) ([]byte, error) {
 
 	s.lastSent++
 	m := NewMessage(message, s.lastSent)
-	return s.Cipher.Encrypt(s.sendKey[:], m.Marshal())
+	return s.Cipher.EncryptWithPassword(s.sendKey[:], m.Marshal())
 }
 
 // Decrypt decrypts a message and checks that its message id is valid
 func (s *Session) Decrypt(message []byte) ([]byte, error) {
-	out, err := s.Cipher.Decrypt(s.recvKey[:], message)
+	out, err := s.Cipher.DecryptWithPassword(s.recvKey[:], message)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +408,28 @@ func Dial(ch Channel, c *Cipher) (*Session, error) {
 	s := NewSession(ch, c)
 
 	s.KeyExchange(priv, &peer, true)
-	return s, nil
+
+	return s, s.DeriveKeys()
+}
+
+func (s *Session) DeriveKeys() error {
+	salt, err := generate.RandBytes(SaltSize)
+	if err != nil {
+		return err
+	}
+
+	skey, err := DeriveKey(s.sendKey[:], salt, s.Cipher.DerivedKeyN, s.Cipher.KeySize())
+	if err != nil {
+		return err
+	}
+
+	rkey, err := DeriveKey(s.recvKey[:], salt, s.Cipher.DerivedKeyN, s.Cipher.KeySize())
+	if err != nil {
+		return err
+	}
+	s.derivedSendKey = skey
+	s.derivedRecvKey = rkey
+	return nil
 }
 
 // Listen waits for a peer to Dial in, then sets up a key exchange
@@ -411,7 +455,7 @@ func Listen(ch Channel, c *Cipher) (*Session, error) {
 	s := NewSession(ch, c)
 
 	s.KeyExchange(priv, &peer, false)
-	return s, nil
+	return s, s.DeriveKeys()
 }
 
 // KeyExchange - Rekey is used to perform the key exchange once both sides have
@@ -447,6 +491,7 @@ func (s *Session) KeyExchange(priv, peer *[64]byte, dialer bool) {
 		// B send key.
 		keyExchange(s.sendKey, priv[32:], peer[32:])
 	}
+
 	s.lastSent = 0
 	s.lastRecv = 0
 }

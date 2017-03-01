@@ -118,6 +118,32 @@ func TestGenerateKeys(t *testing.T) {
 	}
 }
 
+func TestCipher_Encrypt(t *testing.T) {
+	Convey("We can test encrypting with a cypher with both keys and passwords", t, func() {
+		c, err := NewCipher(GCM, testComplexity)
+		So(err, ShouldBeNil)
+		k, err := generate.Key()
+		So(err, ShouldBeNil)
+		key := k[:]
+		plaintext := []byte("This is some data")
+		data, err := c.Encrypt(key, plaintext)
+		So(bytes.Equal(data, plaintext), ShouldBeFalse)
+
+		data, err = c.Decrypt(key, data)
+		So(err, ShouldBeNil)
+		So(bytes.Equal(data, plaintext), ShouldBeTrue)
+
+		password := []byte("password")
+		data, err = c.EncryptWithPassword(password, plaintext)
+		So(err, ShouldBeNil)
+		So(bytes.Equal(data, plaintext), ShouldBeFalse)
+
+		data, err = c.DecryptWithPassword(password, data)
+		So(err, ShouldBeNil)
+		So(bytes.Equal(data, plaintext), ShouldBeTrue)
+	})
+}
+
 func TestDeriveKey(t *testing.T) {
 	Convey("We can test a derived key in order to encrypt and decrypt text", t, func() {
 		c, err := NewCipher(GCM, testComplexity)
@@ -280,12 +306,14 @@ func TestErrors(t *testing.T) {
 		c, err := NewCipher(GCM, testComplexity)
 		So(err, ShouldBeNil)
 		s := NewSession(testio.NewBufCloser(nil), c)
-
+		k, err := generate.Key()
+		So(err, ShouldBeNil)
+		s.recvKey = k
 		_, err = s.Decrypt([]byte{})
 		So(err, ShouldNotBeNil)
 
 		msg := []byte("this is a message")
-		k, err := generate.Key()
+		k, err = generate.Key()
 		So(err, ShouldBeNil)
 		s.sendKey = k
 		s.recvKey = k

@@ -1,4 +1,4 @@
-// Package gcm supports gcm encryption
+// Package gcm supports gcm encryption - gcm is authenticated by default
 package gcm
 
 // https://en.wikipedia.org/wiki/Galois/Counter_Mode
@@ -44,7 +44,7 @@ func (c *Cipher) KeySize() int {
 }
 
 // EncryptWithID calls the package EncryptWithID and passes c.NonceSize
-func (c *Cipher)EncryptWithID(key, plaintext []byte, sender uint32) ([]byte, error) {
+func (c *Cipher) EncryptWithID(key, plaintext []byte, sender uint32) ([]byte, error) {
 	return EncryptWithID(key, plaintext, sender, c.NonceSize)
 }
 
@@ -85,6 +85,9 @@ func EncryptString(key, plaintext string, nonceSize int) (string, error) {
 
 // Decrypt decrypts data using AES-GCM
 func Decrypt(key, ciphertext []byte, nonceSize int) ([]byte, error) {
+	if len(ciphertext) == 0 {
+		return nil, encerrors.ErrInvalidMessageLength
+	}
 	// Create the AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {

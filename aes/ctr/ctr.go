@@ -1,4 +1,4 @@
-// Package ctr supports ctr encryption
+// Package ctr supports ctr encryption - this implementation is authenticated with crypto/hmac using sha256
 package ctr
 
 // https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Counter_.28CTR.29
