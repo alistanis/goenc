@@ -12,19 +12,16 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"reflect"
+
 	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
-	"github.com/kisom/testio"
 	. "github.com/smartystreets/goconvey/convey"
 	"golang.org/x/crypto/nacl/box"
 )
 
 var (
-	testMessage = []byte("do not go gentle into that good night")
-	testSecured []byte
-
-	aliceSession, bobSession *Session
-	ciphers                  []*Cipher
+	ciphers []*Cipher
 )
 
 func init() {
@@ -108,20 +105,15 @@ func TestFileIOErrors(t *testing.T) {
 	})
 }
 
-var (
-	alicePub, alicePriv *[32]byte
-	bobPub, bobPriv     *[32]byte
-)
-
 func TestGenerateKeys(t *testing.T) {
 	var err error
 
-	alicePub, alicePriv, err = box.GenerateKey(rand.Reader)
+	_, _, err = box.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
 
-	bobPub, bobPriv, err = box.GenerateKey(rand.Reader)
+	_, _, err = box.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -184,155 +176,38 @@ func TestDeriveKeyErrors(t *testing.T) {
 	})
 }
 
-func TestSessionSetup(t *testing.T) {
-
-	Convey("We can test all ciphers with a session", t, func() {
+func TestCiphers(t *testing.T) {
+	Convey("We can test all ciphers operate properly", t, func() {
 		for _, c := range ciphers {
-
-			pub, priv, err := GenerateKeyPair()
+			k, err := generate.Key()
 			So(err, ShouldBeNil)
-
-			conn := testio.NewBufferConn()
-			conn.WritePeer(pub[:])
-
-			aliceSession, err = Dial(conn, c)
+			nonce, err := generate.Nonce()
 			So(err, ShouldBeNil)
-
-			var peer [64]byte
-			_, err = conn.ReadClient(peer[:])
+			key, err := DeriveKey(k[:], nonce[:], testComplexity, c.KeySize())
 			So(err, ShouldBeNil)
+			text := []byte("this is some text to encrypt")
 
-			bobSession = &Session{
-				recvKey: new([32]byte),
-				sendKey: new([32]byte),
-				Channel: testio.NewBufCloser(nil),
-				Cipher:  c,
-			}
-
-			bobSession.KeyExchange(priv, &peer, false)
-			aliceSession.Channel = bobSession.Channel
-			err = aliceSession.Send(testMessage)
+			data, err := c.Encrypt(key, text)
 			So(err, ShouldBeNil)
-
-			out, err := bobSession.Receive()
+			So(bytes.Equal(text, data), ShouldBeFalse)
+			data, err = c.Decrypt(key, data)
 			So(err, ShouldBeNil)
-
-			if !bytes.Equal(out, testMessage) {
-				t.Fatal("recovered message doesn't match original")
-			}
-
-			if err = aliceSession.Send(nil); err == nil {
-				t.Fatal("empty message should trigger an error")
-			}
-
-			aliceSession.Close()
-			bobSession.Close()
+			So(bytes.Equal(text, data), ShouldBeTrue)
 		}
 	})
-
 }
 
-var oldMessage []byte
+func TestMessage(t *testing.T) {
+	Convey("We can marshal and unmarshal messages", t, func() {
+		m := NewMessage([]byte("Hello!"), 1)
+		data := m.Marshal()
+		nm, err := UnmarshalMessage(data)
+		So(err, ShouldBeNil)
+		So(reflect.DeepEqual(m, nm), ShouldBeTrue)
 
-func TestSessionListen(t *testing.T) {
+		data = []byte{}
 
-	Convey("We can test session listening with all ciphers", t, func() {
-
-		for _, c := range ciphers {
-			pub, priv, err := GenerateKeyPair()
-			So(err, ShouldBeNil)
-
-			conn := testio.NewBufferConn()
-			conn.WritePeer(pub[:])
-
-			aliceSession, err = Listen(conn, c)
-			So(err, ShouldBeNil)
-
-			var peer [64]byte
-			_, err = conn.ReadClient(peer[:])
-			So(err, ShouldBeNil)
-
-			bobSession = &Session{
-				recvKey: new([32]byte),
-				sendKey: new([32]byte),
-				Channel: testio.NewBufCloser(nil),
-				Cipher:  c,
-			}
-
-			bobSession.KeyExchange(priv, &peer, true)
-
-			aliceSession.Channel = bobSession.Channel
-			err = aliceSession.Send(testMessage)
-			So(err, ShouldBeNil)
-
-			out, err := bobSession.Receive()
-			So(err, ShouldBeNil)
-
-			So(bobSession.LastRecv(), ShouldBeGreaterThan, 0)
-			So(aliceSession.LastSent(), ShouldBeGreaterThan, 0)
-			// The NBA is always listening, on and off the court.
-			oldMessage = out
-
-			if !bytes.Equal(out, testMessage) {
-				t.Fatal("recovered message doesn't match original")
-			}
-
-			for i := 0; i < 4; i++ {
-				randMessage, err := generate.RandBytes(128)
-				So(err, ShouldBeNil)
-
-				err = aliceSession.Send(randMessage)
-				So(err, ShouldBeNil)
-
-				out, err = bobSession.Receive()
-				So(err, ShouldBeNil)
-
-				if !bytes.Equal(out, randMessage) {
-					t.Fatal("recovered message doesn't match original")
-				}
-			}
-
-			// NBA injects an old message into the channel. Damn those hoops!
-			bobSession.Channel.Write(oldMessage)
-			_, err = bobSession.Receive()
-			So(err, ShouldNotBeNil)
-		}
-	})
-
-}
-
-func TestErrors(t *testing.T) {
-	Convey("We can get appropriate errors", t, func() {
-		_, err := NewCipher(NaCL, testComplexity)
-		So(err, ShouldEqual, encerrors.ErrNoPadProvided)
-
-		_, err = NewCipher(50, testComplexity)
-		So(err, ShouldEqual, encerrors.ErrInvalidCipherKind)
-
-		_, err = UnmarshalMessage([]byte{})
+		_, err = UnmarshalMessage(data)
 		So(err, ShouldEqual, encerrors.ErrInvalidMessageLength)
-
-		c, err := NewCipher(GCM, testComplexity)
-		So(err, ShouldBeNil)
-		s := NewSession(testio.NewBufCloser(nil), c)
-		k, err := generate.Key()
-		So(err, ShouldBeNil)
-		s.recvKey = k
-		_, err = s.Decrypt([]byte{})
-		So(err, ShouldNotBeNil)
-
-		msg := []byte("this is a message")
-		k, err = generate.Key()
-		So(err, ShouldBeNil)
-		s.sendKey = k
-		s.recvKey = k
-		data, err := s.Encrypt(msg)
-		So(err, ShouldBeNil)
-		s.lastRecv = 40
-		_, err = s.Decrypt(data)
-		So(err, ShouldNotBeNil)
-
-		_, err = DeriveKey([]byte{}, []byte{}, 0, 1)
-		So(err, ShouldNotBeNil)
 	})
 }
