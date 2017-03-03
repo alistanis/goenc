@@ -25,6 +25,8 @@ type BlockCipher interface {
 `Session` can be used to perform key exchanges and send secure messages over a "channel" (`io.ReadWriter`)
 It also natively performs key derivation, can handle key exchanges, and can prevent replay attaacks. // that is a joke
 
+###Note: Session has been temporarily removed in order to author a more secure version.
+
 ```go
 // Session represents a session that can be used to pass messages over a secure channel
 type Session struct {
