@@ -50,6 +50,7 @@ This package supports the following types of encryption, all using the Go stdlib
 * AES-GCM
 * NaCL - with a user provided pad
 
+
 * ####All types support encryption + authentication
 
 ---
