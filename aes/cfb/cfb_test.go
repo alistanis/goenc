@@ -69,10 +69,9 @@ func TestErrors(t *testing.T) {
 		key, err := generate.RandBytes(30)
 		So(err, ShouldBeNil)
 		_, err = Encrypt(key, []byte{})
-		errText := "crypto/aes: invalid key size 30"
-		So(err.Error(), ShouldEqual, errText)
+		So(err, ShouldEqual, encerrors.ErrInvalidKeyLength)
 		_, err = Decrypt(key, []byte{})
-		So(err.Error(), ShouldEqual, errText)
+		So(err, ShouldEqual, encerrors.ErrInvalidKeyLength)
 
 		k, err := generate.Key()
 		So(err, ShouldBeNil)

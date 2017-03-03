@@ -45,10 +45,12 @@ This package supports the following types of encryption, all using the Go stdlib
 
 ---
 * AES-CBC
-* AES-CFB (Does not include HMAC, probably don't use this - I will happily take a contribution fixing this)
+* AES-CFB
 * AES-CTR 
 * AES-GCM
 * NaCL - with a user provided pad
+
+* ####All types support encryption + authentication
 
 ---
 

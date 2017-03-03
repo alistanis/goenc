@@ -6,15 +6,26 @@ package cfb
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
-	"io"
+
+	"crypto/hmac"
+	"crypto/sha256"
 
 	"github.com/alistanis/goenc/encerrors"
 	"github.com/alistanis/goenc/generate"
 )
 
-// KeySize for CFB uses the generic key size
-const KeySize = generate.KeySize
+const (
+	// KeySize for CFB uses the generic key size
+	KeySize = generate.KeySize
+	// CKeySize - Cipher key size - AES-256
+	CKeySize = 32
+	// MACSize is the output size of HMAC-SHA-256
+	MACSize = 32
+	// MKeySize - HMAC key size - HMAC-SHA-256
+	MKeySize = 32
+	// IVSize - 16 for cfb
+	IVSize = 16
+)
 
 // Cipher to use for implementing the BlockCipher interface
 type Cipher struct {
@@ -40,60 +51,58 @@ func (c *Cipher) KeySize() int {
 	return KeySize
 }
 
-// Decrypt decrypts ciphertext using the given key
-func Decrypt(key, ciphertext []byte) ([]byte, error) {
+// Encrypt encrypts plaintext using the given key with CTR encryption
+func Encrypt(key, plaintext []byte) ([]byte, error) {
+	if len(key) != KeySize {
+		return nil, encerrors.ErrInvalidKeyLength
+	}
 
-	// Create the AES cipher
-	block, err := aes.NewCipher(key)
+	iv, err := generate.RandBytes(IVSize)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(ciphertext) < aes.BlockSize {
+	ct := make([]byte, len(plaintext))
+
+	// NewCipher only returns an error with an invalid key size,
+	// but the key size was checked at the beginning of the function.
+	c, _ := aes.NewCipher(key[:CKeySize])
+	cbc := cipher.NewCFBEncrypter(c, iv)
+	cbc.XORKeyStream(ct, plaintext)
+
+	h := hmac.New(sha256.New, key[CKeySize:])
+	ct = append(iv, ct...)
+	h.Write(ct)
+	ct = h.Sum(ct)
+	return ct, nil
+}
+
+// Decrypt decrypts ciphertext using the given key
+func Decrypt(key, ciphertext []byte) ([]byte, error) {
+	if len(key) != KeySize {
+		return nil, encerrors.ErrInvalidKeyLength
+	}
+
+	if len(ciphertext) <= (IVSize + MACSize) {
 		return nil, encerrors.ErrInvalidMessageLength
 	}
 
-	// get first 16 bytes from ciphertext
-	iv := ciphertext[:aes.BlockSize]
+	macStart := len(ciphertext) - MACSize
+	tag := ciphertext[macStart:]
+	out := make([]byte, macStart-IVSize)
+	ciphertext = ciphertext[:macStart]
 
-	// Remove the IV from the ciphertext
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	// Return a decrypted stream
-	stream := cipher.NewCFBDecrypter(block, iv)
-
-	// SimpleDecrypt bytes from ciphertext
-	stream.XORKeyStream(ciphertext, ciphertext)
-	return ciphertext, nil
-}
-
-// Encrypt encrypts ciphertext using the given key.
-// NOTE: This is not secure without being authenticated (crypto/hmac)
-func Encrypt(key, plaintext []byte) ([]byte, error) {
-	// Create the AES cipher
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
+	h := hmac.New(sha256.New, key[CKeySize:])
+	h.Write(ciphertext)
+	mac := h.Sum(nil)
+	if !hmac.Equal(mac, tag) {
+		return nil, encerrors.ErrInvalidSum
 	}
 
-	// Empty array of 16 + plaintext length
-	// Include the IV at the beginning
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-
-	// Slice of first 16 bytes
-	iv := ciphertext[:aes.BlockSize]
-
-	// Write 16 rand bytes to fill iv
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-
-	// Return an encrypted stream
-	stream := cipher.NewCFBEncrypter(block, iv)
-
-	// SimpleEncrypt bytes from plaintext to ciphertext
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-	return ciphertext, nil
+	c, _ := aes.NewCipher(key[:CKeySize])
+	cbc := cipher.NewCFBDecrypter(c, ciphertext[:IVSize])
+	cbc.XORKeyStream(out, ciphertext[IVSize:])
+	return out, nil
 }
 
 // DecryptString decrypts ciphertext using the given key
