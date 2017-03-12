@@ -88,7 +88,10 @@ const (
 type Cipher struct {
 	BlockCipher
 	DerivedKeyN int
-	Salt        []byte
+}
+
+func (c *Cipher) DeriveKey(pass, salt []byte) ([]byte, error) {
+	return DeriveKey(pass, salt, c.DerivedKeyN, c.KeySize())
 }
 
 // NewCipher returns a new Cipher containing a BlockCipher interface based on the CipherKind
@@ -120,14 +123,14 @@ func NewCipher(kind CipherKind, derivedKeyN int, args ...[]byte) (*Cipher, error
 }
 
 // EncryptWithPassword takes a password, plaintext, and derives a key based on that password,
-// then encrypting that data with the underlying block cipher
+// then encrypting that data with the underlying block cipher and appending the salt to the output
 func (c *Cipher) EncryptWithPassword(password, plaintext []byte) ([]byte, error) {
 	salt, err := generate.RandBytes(SaltSize)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := DeriveKey(password, salt, c.DerivedKeyN, c.BlockCipher.KeySize())
+	key, err := c.DeriveKey(password, salt)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +154,7 @@ func (c *Cipher) DecryptWithPassword(password, ciphertext []byte) ([]byte, error
 		return nil, encerrors.ErrInvalidMessageLength
 	}
 
-	key, err := DeriveKey(password, ciphertext[:SaltSize], c.DerivedKeyN, c.KeySize())
+	key, err := c.DeriveKey(password, ciphertext[:SaltSize])
 	if err != nil {
 		return nil, err
 	}
